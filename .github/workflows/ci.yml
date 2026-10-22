@@ -16,5 +16,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate Python offline workers
+        run: python -m py_compile backend/offline_worker.py backend/install_models.py
       - name: Validate JavaScript and run unit tests
         run: npm run check
