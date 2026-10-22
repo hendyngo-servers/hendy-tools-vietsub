@@ -7,8 +7,6 @@ ENV NODE_ENV=production \
     ARGOS_PACKAGES_DIR=/opt/argos/packages \
     WHISPER_MODEL_PATH=/opt/models/whisper-tiny \
     OMP_NUM_THREADS=2 \
-    HF_HUB_OFFLINE=1 \
-    TRANSFORMERS_OFFLINE=1 \
     TOKENIZERS_PARALLELISM=false
 
 WORKDIR /app
@@ -27,6 +25,7 @@ RUN mkdir -p /opt/argos/packages /opt/models \
     && /opt/venv/bin/python backend/install_models.py \
     && chown -R node:node /app /opt/argos /opt/models
 
+ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 USER node
 EXPOSE 10000
 CMD ["npm", "start"]
