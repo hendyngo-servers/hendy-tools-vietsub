@@ -834,6 +834,9 @@
 
   function init() {
     applySettings();
+    if (!isLoopbackHostname(location.hostname) && !settings.backendUrl) {
+      setTranslateLog('Website đang chạy trên tên miền công khai. URL localhost cũ đã được xóa vì nó trỏ tới máy tính của bạn. Hãy triển khai backend Vietsub và nhập URL HTTPS công khai rồi bấm Kiểm tra bộ máy.', 'bad');
+    }
     const restored = loadDraft();
     renderCues(); updateStats(); bindEvents(); updateHistoryButtons(); updateCaption();
     if (restored) { setSaveStatus('NHÁP ĐÃ KHÔI PHỤC'); notify('Đã khôi phục nháp cục bộ từ lần trước.', 'good'); }
