@@ -21,9 +21,11 @@ for (const relativePath of [...staticFiles, ...staticDirectories]) {
   if (!fs.existsSync(path.join(root, relativePath))) throw new Error('Required publish path is missing: ' + relativePath);
 }
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-for (const reference of ['assets/app.css', 'assets/icon.svg', 'src/subtitles.js', 'src/app.js', 'manifest.webmanifest']) {
+for (const reference of ['assets/app.css', 'src/subtitles.js', 'src/app.js', 'manifest.webmanifest']) {
   if (!html.includes(reference)) throw new Error('index.html does not reference required asset: ' + reference);
 }
+const manifest = fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8');
+if (!manifest.includes('assets/icon.svg')) throw new Error('manifest.webmanifest does not reference assets/icon.svg');
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
 for (const file of staticFiles) copyEntry(file);
