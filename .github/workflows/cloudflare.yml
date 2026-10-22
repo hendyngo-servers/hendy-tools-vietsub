@@ -11,6 +11,9 @@ on:
       - 'sw.js'
       - 'worker.js'
       - 'wrangler.jsonc'
+      - '.assetsignore'
+      - 'version.json'
+      - 'tests/**'
       - 'scripts/build-static.cjs'
       - 'package.json'
       - '.github/workflows/cloudflare.yml'
@@ -35,6 +38,8 @@ jobs:
           node-version: 22
       - name: Run tests and build
         run: npm run check
+      - name: Validate Wrangler configuration and static assets without publishing
+        run: npx --yes wrangler@4 deploy --dry-run
       - name: Check Cloudflare credentials are configured
         id: credentials
         env:
