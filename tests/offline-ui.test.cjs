@@ -27,3 +27,17 @@ test('frontend exposes built-in offline Vietsub tools without third-party API cr
   assert.ok(!html.includes('id="apiKey"'), 'Third-party API key field must not be shown.');
   assert.ok(!html.includes('id="providerSelect"'), 'External provider selector must be removed.');
 });
+
+
+test('public deployment rejects stale localhost backend URL and gives secure setup guidance', () => {
+  for (const marker of [
+    'function isLoopbackHostname(hostname)',
+    'function isLoopbackBackendUrl(value)',
+    'isLoopbackBackendUrl(backendUrl)',
+    'website workers.dev',
+    'URL HTTPS công khai',
+    'location.origin'
+  ]) assert.ok(app.includes(marker), 'Missing backend connection safety behavior: ' + marker);
+  assert.ok(html.includes('https://ten-backend.onrender.com'));
+  assert.ok(html.includes('id="offlineBackendHint"'));
+});
