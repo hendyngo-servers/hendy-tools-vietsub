@@ -2,7 +2,7 @@ services:
   - type: web
     name: hendy-tools-vietsub-api
     runtime: docker
-    plan: starter
+    plan: free
     region: singapore
     branch: main
     dockerfilePath: ./Dockerfile
