@@ -22,5 +22,5 @@ jobs:
           python-version: '3.11'
       - name: Validate Python offline workers
         run: python -m py_compile backend/offline_worker.py backend/install_models.py
-      - name: Validate JavaScript and run unit tests
+      - name: Validate JavaScript, tests and public bundle
         run: npm run check
