@@ -20,15 +20,13 @@ const WORKER_TIMEOUT_MS = 12 * 60_000;
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ||
   'https://hendyngo-servers.github.io,https://hendy-tools-vietsub.ngogiaidy3.workers.dev,http://localhost:8080,http://127.0.0.1:8080')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean);
+  .split(',').map(v => v.trim()).filter(Boolean);
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
-  origin(origin, callback) {
+  origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by ALLOWED_ORIGINS'));
   },
@@ -38,24 +36,17 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '512kb' }));
 
-const translateLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: 60,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false
-});
-const mediaLimiter = rateLimit({
-  windowMs: 15 * 60_000,
-  limit: 3,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'Đã đạt giới hạn xử lý media tạm thời. Hãy thử lại sau.' }
+const translateLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false });
+const mediaLimiter = rateLimit({ 
+  windowMs: 15 * 60_000, limit: 3, standardHeaders: 'draft-8', legacyHeaders: false, 
+  message: { error: 'Đã đạt giới hạn xử lý media tạm thời. Hãy thử lại sau.' } 
 });
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_VIDEO_BYTES, files: 1, fields: 4, fieldSize: MAX_SUBTITLE_BYTES }
 });
 
+let worker;
 let workerReady = false;
 let workerStartupError = "";
 let workerInfo = { translationLanguages: [], whisperModelAvailable: false };
@@ -64,77 +55,83 @@ let workerBuffer = '';
 const pendingWorkerRequests = new Map();
 const workerPath = path.join(__dirname, 'offline_worker.py');
 const pythonBin = process.env.PYTHON_BIN || 'python3';
-const worker = spawn(pythonBin, [workerPath], {
-  stdio: ['pipe', 'pipe', 'pipe'],
-  env: process.env
-});
 
-worker.stdout.setEncoding('utf8');
-worker.stdout.on('data', (chunk) => {
-  workerBuffer += chunk;
-  let newline;
-  while ((newline = workerBuffer.indexOf('\n')) >= 0) {
-    const line = workerBuffer.slice(0, newline);
-    workerBuffer = workerBuffer.slice(newline + 1);
-    if (!line.trim()) continue;
-    let message;
-    try { message = JSON.parse(line); } catch (_) { continue; }
-    if (message.type === 'startup_error') {
-      workerReady = false;
-      workerStartupError = String(message.error || 'Mô hình offline chưa khởi động được.').slice(0, 500);
-      console.error('Offline Vietsub worker startup failed: ' + workerStartupError);
-      continue;
-    }
-    if (message.type === 'ready') {
-      workerInfo = {
-        translationLanguages: Array.isArray(message.translationLanguages) ? message.translationLanguages : [],
-        whisperModelAvailable: Boolean(message.whisperModelAvailable)
-      };
-      workerReady = workerInfo.translationLanguages.includes('vi') &&
-        workerInfo.translationLanguages.includes('en') &&
-        workerInfo.translationLanguages.length > 2;
-      workerStartupError = workerReady ? '' : 'Bộ mô hình dịch không đầy đủ.';
-      console.log('Offline Vietsub worker ready. Languages: ' + workerInfo.translationLanguages.join(', '));
-      continue;
-    }
-    const pending = pendingWorkerRequests.get(String(message.id));
-    if (!pending) continue;
-    pendingWorkerRequests.delete(String(message.id));
-    clearTimeout(pending.timer);
-    if (message.ok) pending.resolve(message.result);
-    else pending.reject(new Error(message.error || 'Offline model failed.'));
-  }
-});
-worker.stderr.setEncoding('utf8');
-worker.stderr.on('data', (chunk) => {
-  const line = chunk.trim();
-  if (line) console.error('[offline-worker] ' + line.slice(0, 1000));
-});
-worker.on('error', (error) => {
+// Đã tách hàm spawn worker để hỗ trợ tự động restart
+function spawnWorker() {
   workerReady = false;
-  workerStartupError = 'Không thể khởi động bộ máy offline.';
-  console.error('Could not start offline model worker: ' + error.message);
-  for (const pending of pendingWorkerRequests.values()) {
-    clearTimeout(pending.timer);
-    pending.reject(new Error('Không khởi động được bộ máy Vietsub cục bộ.'));
-  }
-  pendingWorkerRequests.clear();
-});
-worker.on('exit', (code) => {
+  workerBuffer = '';
+  worker = spawn(pythonBin, [workerPath], { stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
+
+  worker.stdout.setEncoding('utf8');
+  worker.stdout.on('data', (chunk) => {
+    workerBuffer += chunk;
+    let newline;
+    while ((newline = workerBuffer.indexOf('\n')) >= 0) {
+      const line = workerBuffer.slice(0, newline);
+      workerBuffer = workerBuffer.slice(newline + 1);
+      if (!line.trim()) continue;
+      let message;
+      try { message = JSON.parse(line); } catch (_) { continue; }
+      
+      if (message.type === 'startup_error') {
+        workerReady = false;
+        workerStartupError = String(message.error || 'Lỗi khởi động mô hình.').slice(0, 500);
+        console.error('[Worker Error]', workerStartupError);
+        continue;
+      }
+      if (message.type === 'ready') {
+        workerInfo = {
+          translationLanguages: Array.isArray(message.translationLanguages) ? message.translationLanguages : [],
+          whisperModelAvailable: Boolean(message.whisperModelAvailable)
+        };
+        workerReady = workerInfo.translationLanguages.includes('vi') && workerInfo.translationLanguages.includes('en');
+        workerStartupError = workerReady ? '' : 'Bộ mô hình dịch không đầy đủ.';
+        console.log('[Worker Ready] Languages:', workerInfo.translationLanguages.join(', '));
+        continue;
+      }
+      
+      const pending = pendingWorkerRequests.get(String(message.id));
+      if (!pending) continue;
+      pendingWorkerRequests.delete(String(message.id));
+      clearTimeout(pending.timer);
+      if (message.ok) pending.resolve(message.result);
+      else pending.reject(new Error(message.error || 'Offline model failed.'));
+    }
+  });
+
+  worker.stderr.setEncoding('utf8');
+  worker.stderr.on('data', (chunk) => {
+    const line = chunk.trim();
+    if (line) console.error('[Python Log]', line.slice(0, 500));
+  });
+
+  worker.on('error', (error) => {
+    console.error('Failed to start worker process:', error.message);
+    resetPendingRequests('Không thể khởi động bộ máy offline.');
+  });
+
+  worker.on('exit', (code) => {
+    console.error(`Worker exited with code ${code}. Restarting in 3 seconds...`);
+    resetPendingRequests('Bộ máy Vietsub cục bộ đã dừng đột ngột.');
+    setTimeout(spawnWorker, 3000); // Auto-heal
+  });
+}
+
+function resetPendingRequests(reasonMsg) {
   workerReady = false;
-  const reason = new Error('Bộ máy Vietsub cục bộ đã dừng (code ' + code + ').');
+  const reason = new Error(reasonMsg);
   for (const pending of pendingWorkerRequests.values()) {
     clearTimeout(pending.timer);
     pending.reject(reason);
   }
   pendingWorkerRequests.clear();
-  console.error(reason.message);
-});
+}
+
+spawnWorker();
 
 function callWorker(payload, timeoutMs = WORKER_TIMEOUT_MS) {
-  if (!workerReady) {
-    return Promise.reject(new Error('Bộ máy Vietsub đang khởi động hoặc chưa sẵn sàng. Hãy thử lại sau vài giây.'));
-  }
+  if (!workerReady) return Promise.reject(new Error('Bộ máy đang khởi động hoặc đang bận. Vui lòng thử lại sau.'));
+  
   return new Promise((resolve, reject) => {
     const id = String(++workerCounter);
     const timer = setTimeout(() => {
@@ -142,20 +139,19 @@ function callWorker(payload, timeoutMs = WORKER_TIMEOUT_MS) {
       reject(new Error('Tác vụ offline vượt quá thời gian cho phép.'));
     }, timeoutMs);
     pendingWorkerRequests.set(id, { resolve, reject, timer });
+    
     try {
       worker.stdin.write(JSON.stringify({ ...payload, id }) + '\n', (error) => {
-        if (!error) return;
-        const pending = pendingWorkerRequests.get(id);
-        if (pending) {
+        if (error) {
           pendingWorkerRequests.delete(id);
-          clearTimeout(pending.timer);
-          pending.reject(new Error('Không gửi được tác vụ đến bộ máy offline.'));
+          clearTimeout(timer);
+          reject(new Error('Không gửi được tác vụ đến tiến trình offline.'));
         }
       });
     } catch (_) {
       pendingWorkerRequests.delete(id);
       clearTimeout(timer);
-      reject(new Error('Không gửi được tác vụ đến bộ máy offline.'));
+      reject(new Error('Lỗi giao tiếp với tiến trình offline.'));
     }
   });
 }
@@ -163,9 +159,9 @@ function callWorker(payload, timeoutMs = WORKER_TIMEOUT_MS) {
 function run(command, args, timeoutMs, captureOutput = false) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: captureOutput ? ['ignore', 'pipe', 'pipe'] : 'ignore' });
-    let stdout = '';
-    let stderr = '';
+    let stdout = '', stderr = '';
     let settled = false;
+    
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
       finish(new Error('Quá thời gian xử lý video.'));
@@ -180,12 +176,13 @@ function run(command, args, timeoutMs, captureOutput = false) {
     }
 
     if (captureOutput) {
-      child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+      child.stdout.on('data', (chunk) => stdout += chunk.toString());
       child.stderr.on('data', (chunk) => { if (stderr.length < 8000) stderr += chunk.toString(); });
     }
-    child.once('error', () => finish(new Error('Không chạy được công cụ xử lý media. Kiểm tra FFmpeg trong image.')));
+    
+    child.once('error', () => finish(new Error('Không chạy được FFmpeg. Kiểm tra lại môi trường cài đặt.')));
     child.once('close', (code) => {
-      if (code !== 0) return finish(new Error(captureOutput ? 'Không đọc được thông tin video.' : 'FFmpeg không thể ghép phụ đề vào video.'));
+      if (code !== 0) return finish(new Error(captureOutput ? 'Không đọc được metadata video.' : 'FFmpeg lỗi khi ghép phụ đề.'));
       finish(null, { stdout, stderr });
     });
   });
@@ -193,17 +190,15 @@ function run(command, args, timeoutMs, captureOutput = false) {
 
 async function inspectVideo(file) {
   const probe = await run('ffprobe', [
-    '-v', 'error', '-show_entries', 'format=duration:stream=codec_type',
-    '-of', 'json', file
+    '-v', 'error', '-show_entries', 'format=duration:stream=codec_type', '-of', 'json', file
   ], 20_000, true);
+  
   let metadata;
   try { metadata = JSON.parse(probe.stdout); } catch (_) { metadata = null; }
-  const duration = Number(metadata && metadata.format && metadata.format.duration);
-  const hasVideo = Array.isArray(metadata && metadata.streams) &&
-    metadata.streams.some((stream) => stream.codec_type === 'video');
-  if (!hasVideo || !Number.isFinite(duration) || duration <= 0) {
-    throw new Error('Tệp tải lên không có video hợp lệ.');
-  }
+  const duration = Number(metadata?.format?.duration);
+  const hasVideo = metadata?.streams?.some(s => s.codec_type === 'video');
+  
+  if (!hasVideo || !Number.isFinite(duration) || duration <= 0) throw new Error('Tệp tải lên không có video hợp lệ.');
   if (duration > MAX_VIDEO_SECONDS) {
     const error = new Error('Bản cấu hình mặc định giới hạn video tối đa 10 phút.');
     error.statusCode = 413;
@@ -212,166 +207,118 @@ async function inspectVideo(file) {
   return { duration, streams: metadata.streams };
 }
 
-function cleanTempDir(dir) {
-  if (dir) return fs.rm(dir, { recursive: true, force: true }).catch(() => {});
-  return Promise.resolve();
-}
+const safeRemove = async (filePath) => fs.rm(filePath, { force: true, recursive: true }).catch(() => {});
 
 function uploadVideo(req, res, next) {
   upload.single('video')(req, res, (error) => {
     if (!error) return next();
     if (error instanceof multer.MulterError) {
-      const message = error.code === 'LIMIT_FILE_SIZE'
-        ? 'Video vượt quá giới hạn 200 MB.'
-        : 'Dữ liệu tải lên không hợp lệ hoặc vượt giới hạn.';
-      return res.status(400).json({ error: message });
+      return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Video vượt quá giới hạn 200 MB.' : 'Lỗi tải tệp.' });
     }
     return next(error);
   });
 }
 
-function checkVideoExtension(file) {
-  const extension = path.extname(file.originalname || '').toLowerCase();
-  if (!new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v']).has(extension)) {
-    throw new Error('Định dạng video hỗ trợ: MP4, MOV, MKV, WEBM, M4V.');
-  }
-}
-
-app.get('/', (_req, res) => {
-  res.json({
-    name: 'Hendy VietSub Offline Studio',
-    version: '2.2.1',
-    externalTranslationApiRequired: false,
-    endpoints: ['/health', '/api/translate', '/api/translate-batch', '/api/transcribe', '/api/render']
-  });
-});
-
 app.get('/health', (_req, res) => {
-  const ok = workerReady;
-  res.status(ok ? 200 : 503).json({
-    ok,
-    status: ok ? 'ready' : 'starting_or_failed',
+  res.status(workerReady ? 200 : 503).json({
+    ok: workerReady,
+    status: workerReady ? 'ready' : 'starting_or_failed',
     offlineEngineReady: workerReady,
     offlineTranslation: workerReady && workerInfo.translationLanguages.length > 0,
     speechRecognition: workerReady && workerInfo.whisperModelAvailable,
     videoRendering: true,
     translationLanguages: workerInfo.translationLanguages,
-    externalTranslationApiRequired: false,
     maxVideoBytes: MAX_VIDEO_BYTES,
-    maxVideoSeconds: MAX_VIDEO_SECONDS,
-    ...(workerStartupError ? { workerError: workerStartupError } : {})
+    workerError: workerStartupError || undefined
   });
 });
 
-async function handleBatchTranslate(req, res) {
-  const body = req.body || {};
-  let texts;
-  if (Array.isArray(body.texts)) texts = body.texts;
-  else if (typeof body.q === 'string') texts = [body.q];
-  else return res.status(400).json({ error: 'Cần cung cấp q hoặc mảng texts.' });
-  if (!texts.length || texts.length > 40 || texts.some((text) => typeof text !== 'string' || !text.trim() || text.length > 5000)) {
-    return res.status(400).json({ error: 'Gửi từ 1 đến 40 câu; mỗi câu tối đa 5000 ký tự và không được rỗng.' });
+app.post('/api/translate-batch', translateLimiter, async (req, res) => {
+  const texts = Array.isArray(req.body?.texts) ? req.body.texts : (req.body?.q ? [req.body.q] : []);
+  if (!texts.length || texts.length > 40 || texts.some(t => typeof t !== 'string' || !t.trim() || t.length > 5000)) {
+    return res.status(400).json({ error: 'Gửi từ 1 đến 40 câu; mỗi câu tối đa 5000 ký tự hợp lệ.' });
   }
-  const source = typeof body.source === 'string' ? body.source : 'auto';
-  const target = typeof body.target === 'string' ? body.target : 'vi';
-  if (target !== 'vi') return res.status(400).json({ error: 'Bộ dịch tích hợp hiện xuất Vietsub tiếng Việt (target=vi).' });
+  
+  if (req.body?.target && req.body.target !== 'vi') return res.status(400).json({ error: 'Chỉ hỗ trợ target=vi.' });
+  
   try {
-    const result = await callWorker({ op: 'translate', texts, source, target }, 180_000);
-    if (texts.length === 1 && typeof body.q === 'string') return res.json({ translatedText: result.translations[0] });
+    const result = await callWorker({ op: 'translate', texts, source: req.body?.source || 'auto', target: 'vi' }, 180_000);
     return res.json({ translations: result.translations, detectedLanguages: result.detectedLanguages || [] });
   } catch (error) {
-    const status = /không có mô hình|không hỗ trợ|ngôn ngữ/i.test(error.message) ? 422 : 503;
-    return res.status(status).json({ error: error.message });
+    return res.status(/không có mô hình/i.test(error.message) ? 422 : 503).json({ error: error.message });
   }
-}
-
-app.post('/api/translate', translateLimiter, handleBatchTranslate);
-app.post('/api/translate-batch', translateLimiter, handleBatchTranslate);
+});
 
 app.post('/api/transcribe', mediaLimiter, uploadVideo, async (req, res) => {
-  const file = req.file;
-  if (!file) return res.status(400).json({ error: 'Thiếu video cần nhận dạng (field name: video).' });
+  if (!req.file) return res.status(400).json({ error: 'Thiếu file video.' });
+  
   try {
-    checkVideoExtension(file);
-    const metadata = await inspectVideo(file.path);
-    const language = typeof req.body.language === 'string' ? req.body.language : 'auto';
-    const result = await callWorker({ op: 'transcribe', path: file.path, language }, 12 * 60_000);
-    const cues = (result.segments || []).map((segment) => ({
-      start: Math.max(0, Math.round(Number(segment.start || 0) * 1000)),
-      end: Math.max(1, Math.round(Number(segment.end || 0) * 1000)),
-      original: String(segment.text || '').trim(),
+    const metadata = await inspectVideo(req.file.path);
+    const result = await callWorker({ op: 'transcribe', path: req.file.path, language: req.body?.language || 'auto' }, 12 * 60_000);
+    
+    const cues = (result.segments || []).map(seg => ({
+      start: Math.max(0, Math.round(Number(seg.start || 0) * 1000)),
+      end: Math.max(1, Math.round(Number(seg.end || 0) * 1000)),
+      original: String(seg.text || '').trim(),
       vi: ''
-    })).filter((cue) => cue.original && cue.end > cue.start);
-    if (!cues.length) return res.status(422).json({ error: 'Không nhận diện được lời thoại rõ ràng trong video.' });
+    })).filter(cue => cue.original && cue.end > cue.start);
+    
+    if (!cues.length) return res.status(422).json({ error: 'Không nhận diện được giọng nói trong video.' });
+    
     res.json({
-      cues,
-      detectedLanguage: result.language || language,
-      languageProbability: result.languageProbability || 0,
-      durationSeconds: metadata.duration,
-      count: cues.length
+      cues, detectedLanguage: result.language || 'auto',
+      durationSeconds: metadata.duration, count: cues.length
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({ error: error.message || 'Không thể nhận dạng giọng nói từ video.' });
+    res.status(error.statusCode || 500).json({ error: error.message });
   } finally {
-    await fs.rm(file.path, { force: true }).catch(() => {});
+    await safeRemove(req.file.path);
   }
 });
 
 app.post('/api/render', mediaLimiter, uploadVideo, async (req, res) => {
-  const file = req.file;
+  if (!req.file) return res.status(400).json({ error: 'Thiếu file video.' });
   let workDir = null;
   let sendingFile = false;
-  if (!file) return res.status(400).json({ error: 'Thiếu file video (field name: video).' });
+  
   try {
-    checkVideoExtension(file);
-    await inspectVideo(file.path);
-    const srt = req.body && req.body.subtitleSrt;
-    if (typeof srt !== 'string' || !srt.trim() ||
-      Buffer.byteLength(srt, 'utf8') > MAX_SUBTITLE_BYTES || !srt.includes('-->')) {
-      return res.status(400).json({ error: 'Thiếu phụ đề SRT hợp lệ hoặc file phụ đề vượt 350 KB.' });
+    await inspectVideo(req.file.path);
+    const srt = req.body?.subtitleSrt;
+    if (typeof srt !== 'string' || !srt.trim() || Buffer.byteLength(srt) > MAX_SUBTITLE_BYTES) {
+      return res.status(400).json({ error: 'File SRT không hợp lệ hoặc quá lớn.' });
     }
-    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hendy-vietsub-'));
-    const subtitlePath = path.join(workDir, 'captions.srt');
-    const outputPath = path.join(workDir, 'hendy-vietsub.mp4');
-    await fs.writeFile(subtitlePath, srt, { encoding: 'utf8', flag: 'wx' });
-    const rawSize = Number(req.body.fontSize);
-    const fontSize = Number.isFinite(rawSize) ? Math.min(36, Math.max(14, Math.round(rawSize))) : 22;
-    const vf = "subtitles='" + subtitlePath + "':force_style='FontName=DejaVu Sans,FontSize=" +
-      fontSize + ",Outline=2,Shadow=1,Alignment=2,MarginV=35'";
+    
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'vietsub-'));
+    const subPath = path.join(workDir, 'captions.srt');
+    const outPath = path.join(workDir, 'out.mp4');
+    await fs.writeFile(subPath, srt, 'utf8');
+    
+    const fontSize = Math.min(36, Math.max(14, Math.round(Number(req.body?.fontSize)) || 22));
+    // scale auto to avoid "width not divisible by 2" FFmpeg error
+    const vf = `scale=trunc(iw/2)*2:trunc(ih/2)*2,subtitles='${subPath.replace(/\\/g, '/')}':force_style='FontName=DejaVu Sans,FontSize=${fontSize},Outline=2,Shadow=1,Alignment=2,MarginV=35'`;
+    
     await run('ffmpeg', [
-      '-hide_banner', '-loglevel', 'error', '-y',
-      '-i', file.path,
-      '-map', '0:v:0', '-map', '0:a?',
-      '-vf', vf,
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-b:a', '128k',
-      '-movflags', '+faststart',
-      outputPath
+      '-y', '-i', req.file.path,
+      '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outPath
     ], FFMPEG_TIMEOUT_MS, false);
 
-    res.setHeader('Cache-Control', 'no-store');
     sendingFile = true;
-    res.download(outputPath, 'hendy-vietsub.mp4', (error) => {
-      cleanTempDir(workDir);
-      if (error && !res.headersSent) res.status(500).json({ error: 'Không thể tải video đã xử lý.' });
+    res.download(outPath, 'hendy-vietsub.mp4', err => {
+      safeRemove(workDir);
+      if (err && !res.headersSent) res.status(500).json({ error: 'Lỗi truyền file.' });
     });
   } catch (error) {
-    await cleanTempDir(workDir);
-    if (!res.headersSent) res.status(error.statusCode || 500).json({ error: error.message || 'Không thể ghép phụ đề vào video.' });
+    if (!res.headersSent) res.status(error.statusCode || 500).json({ error: error.message });
+    await safeRemove(workDir);
   } finally {
-    await fs.rm(file.path, { force: true }).catch(() => {});
-    if (!sendingFile) await cleanTempDir(workDir);
+    await safeRemove(req.file.path);
+    if (!sendingFile) await safeRemove(workDir);
   }
 });
 
 app.use((error, _req, res, _next) => {
-  const forbidden = error && error.message && error.message.includes('Origin is not allowed');
-  if (!res.headersSent) res.status(forbidden ? 403 : 500).json({ error: forbidden ? 'Origin không được phép.' : 'Lỗi máy chủ.' });
+  if (!res.headersSent) res.status(500).json({ error: error.message || 'Internal Server Error' });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('Hendy VietSub Offline Studio listening on port ' + PORT);
-});
-server.requestTimeout = 12 * 60_000;
-server.headersTimeout = 12 * 60_000 + 10_000;
+app.listen(PORT, '0.0.0.0', () => console.log('Hendy VietSub Studio Backend on port ' + PORT));
