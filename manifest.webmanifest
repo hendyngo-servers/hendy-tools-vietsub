@@ -1,7 +1,7 @@
 {
   "name": "Hendy VietSub Tools",
   "short_name": "Hendy VietSub",
-  "description": "Biên tập phụ đề tiếng Việt ngay trong trình duyệt.",
+  "description": "Biên tập, dịch offline, nhận dạng giọng nói và xuất video Vietsub.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
