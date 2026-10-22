@@ -1,14 +1,20 @@
 {
   "name": "hendy-tools-vietsub",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
-  "description": "Local-first Vietsub subtitle editor with SRT/VTT import/export and optional translation providers.",
+  "description": "Vietsub subtitle studio with bundled offline translation, speech recognition and FFmpeg rendering",
   "license": "MIT",
   "scripts": {
+    "start": "node backend/server.js",
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check src/subtitles.js && node --check src/app.js && node --check userscript/hendy-tools-vietsub.user.js && node --check userscript/hendy-vietsub-subtitle-studio.user.js && npm test"
+    "check": "node --check src/subtitles.js && node --check src/app.js && node --check backend/server.js && node --check userscript/hendy-tools-vietsub.user.js && node --check userscript/hendy-vietsub-subtitle-studio.user.js && npm test"
   },
-  "engines": {
-    "node": ">=20"
+  "engines": {"node": ">=20"},
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2"
   }
 }
