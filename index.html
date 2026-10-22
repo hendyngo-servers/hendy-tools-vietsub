@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09111f">
-  <meta name="description" content="Hendy VietSub Tools 2.1 — chỉnh sửa phụ đề song ngữ, đồng bộ video và xuất SRT/VTT ngay trên trình duyệt.">
+  <meta name="description" content="Hendy VietSub Tools 2.2 — chỉnh sửa phụ đề song ngữ, đồng bộ video và xuất SRT/VTT ngay trên trình duyệt.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="assets/app.css">
   <title>Hendy VietSub Tools 2.1</title>
@@ -13,7 +13,7 @@
   <div class="shell">
     <header class="topbar">
       <a class="brand" href="#studio" aria-label="Hendy VietSub Tools trang chủ">
-        <span class="brand-mark">H</span><span><strong>HENDY <span>VIETSUB</span></strong><small>SUBTITLE STUDIO · V2.1</small></span>
+        <span class="brand-mark">H</span><span><strong>HENDY <span>VIETSUB</span></strong><small>SUBTITLE STUDIO · V2.2</small></span>
       </a>
       <div class="top-actions">
         <span class="status-pill" id="saveStatus" role="status">● SẴN SÀNG</span>
@@ -36,7 +36,7 @@
         <article class="stat-card"><span class="stat-icon amber">¶</span><div><small>TỪ NGUỒN</small><strong id="statWords">0</strong></div></article>
       </section>
 
-      <nav class="tabs" aria-label="Công cụ"><button class="tab active" data-tab="editorPane">✎ Studio</button><button class="tab" data-tab="toolsPane">⌘ Công cụ phụ đề</button><button class="tab" data-tab="translatePane">✦ Dịch AI / API</button></nav>
+      <nav class="tabs" aria-label="Công cụ"><button class="tab active" data-tab="editorPane">✎ Studio</button><button class="tab" data-tab="toolsPane">⌘ Công cụ phụ đề</button><button class="tab" data-tab="translatePane">✦ Vietsub tự động</button></nav>
 
       <section class="tab-pane active" id="editorPane">
         <div class="workspace-grid">
@@ -78,21 +78,83 @@
 
       <section class="tab-pane" id="translatePane">
         <div class="translate-grid">
-          <section class="panel"><div class="panel-heading"><div><p class="eyebrow">PROVIDER CONFIGURATION</p><h2>Kết nối dịch máy</h2></div><span class="tag">TÙY CHỌN</span></div><div class="panel-body">
-            <div class="callout warning"><strong>Lưu ý quyền riêng tư</strong><p>Khi chạy dịch, văn bản phụ đề sẽ được gửi đến endpoint mà bạn cấu hình. Video không được gửi. API key chỉ giữ trong bộ nhớ của tab hiện tại và không nằm trong nháp, localStorage hay file JSON.</p></div>
-            <label class="field-label" for="providerSelect">Loại API</label><select id="providerSelect"><option value="openai">OpenAI-compatible · Chat Completions</option><option value="libretranslate">LibreTranslate-compatible</option></select>
-            <label class="field-label spaced" for="apiEndpoint">Endpoint URL</label><input id="apiEndpoint" type="url" placeholder="https://your-provider.example/v1/chat/completions" autocomplete="off">
-            <div id="modelField"><label class="field-label spaced" for="apiModel">Tên model</label><input id="apiModel" placeholder="Model do nhà cung cấp cung cấp" autocomplete="off"></div>
-            <div class="two-fields"><div><label class="field-label spaced" for="sourceLanguage">Ngôn ngữ nguồn</label><input id="sourceLanguage" value="auto" placeholder="auto / en / ja"></div><div><label class="field-label spaced" for="targetLanguage">Ngôn ngữ đích</label><input id="targetLanguage" value="vi" placeholder="vi"></div></div>
-            <label class="field-label spaced" for="apiKey">API key (chỉ trong phiên)</label><input id="apiKey" type="password" autocomplete="new-password" placeholder="Dán API key nếu nhà cung cấp yêu cầu">
-            <div class="actions-row spaced"><button class="button" id="testApiBtn">Kiểm tra kết nối</button><button class="button primary" id="translateMissingBtn">Dịch dòng chưa dịch</button><button class="button" id="translateAllBtn">Dịch lại tất cả</button><button class="button danger" id="stopTranslateBtn" disabled>Dừng</button></div>
-            <div class="progress-line"><span id="apiProgress"></span></div><div id="apiLog" class="api-log" role="status">Chưa chạy tác vụ dịch.</div><div class="actions-row spaced"><button class="button compact" id="saveApiSettingsBtn">Lưu endpoint / model</button><button class="button compact ghost" id="clearApiKeyBtn">Xóa API key khỏi phiên</button></div>
-          </div></section>
-          <aside class="panel"><div class="panel-heading"><div><p class="eyebrow">WORKFLOW</p><h2>Quy trình đề xuất</h2></div></div><div class="panel-body"><ol class="workflow"><li><strong>Nhập phụ đề</strong><span>Nạp SRT/VTT hoặc mở bản sao lưu JSON.</span></li><li><strong>Cấu hình nhà cung cấp</strong><span>Endpoint phải cho phép CORS và hỗ trợ loại API đã chọn.</span></li><li><strong>Dịch theo nhóm nhỏ</strong><span>Với Chat Completions, các dòng được gửi theo nhóm 10 dòng.</span></li><li><strong>Rà soát thủ công</strong><span>Kiểm tra tên riêng, ngữ cảnh, độ dài và timeline.</span></li><li><strong>Xuất bản</strong><span>Xuất SRT/VTT hoặc sao lưu JSON để tiếp tục sau.</span></li></ol><div class="callout"><strong>Không có API?</strong><p>Ứng dụng vẫn dùng được để biên tập, căn thời gian và xuất phụ đề mà không cần kết nối AI.</p></div></div></aside>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">BUILT-IN OFFLINE ENGINE</p><h2>Công cụ Vietsub tích hợp sẵn</h2></div><span class="tag">KHÔNG CẦN API KEY</span></div>
+            <div class="panel-body">
+              <div class="callout">
+                <strong>Dịch máy và nhận dạng chạy bằng mô hình đi kèm backend</strong>
+                <p>Không cần tài khoản dịch thuật, API key hoặc dịch vụ AI bên thứ ba. Backend do bạn quản lý dùng Argos Translate, Whisper và FFmpeg. GitHub Pages chỉ là giao diện tĩnh nên cần URL backend riêng để chạy mô hình.</p>
+              </div>
+              <label class="field-label" for="offlineBackendUrl">URL backend Vietsub của bạn</label>
+              <input id="offlineBackendUrl" type="url" placeholder="http://localhost:10000 hoặc https://ten-dich-vu.onrender.com" autocomplete="url">
+              <div class="actions-row spaced">
+                <button class="button primary" id="checkOfflineBtn">Kiểm tra bộ máy</button>
+                <button class="button" id="saveOfflineSettingsBtn">Lưu URL</button>
+              </div>
+              <div id="apiLog" class="api-log" role="status">Chưa kiểm tra backend. Không cần nhập API key.</div>
+              <div class="progress-line"><span id="apiProgress"></span></div>
+              <label class="field-label spaced" for="offlineSourceLanguage">Ngôn ngữ lời thoại nguồn</label>
+              <select id="offlineSourceLanguage">
+                <option value="auto">Tự nhận diện (khuyến nghị)</option>
+                <option value="en">English · Tiếng Anh</option>
+                <option value="ja">Japanese · Tiếng Nhật</option>
+                <option value="ko">Korean · Tiếng Hàn</option>
+                <option value="zh">Chinese · Tiếng Trung</option>
+                <option value="es">Spanish · Tiếng Tây Ban Nha</option>
+                <option value="fr">French · Tiếng Pháp</option>
+                <option value="de">German · Tiếng Đức</option>
+                <option value="id">Indonesian · Tiếng Indonesia</option>
+                <option value="th">Thai · Tiếng Thái</option>
+              </select>
+              <div class="actions-row spaced">
+                <button class="button primary" id="translateMissingBtn">Dịch dòng chưa dịch</button>
+                <button class="button" id="translateAllBtn">Dịch lại tất cả</button>
+                <button class="button danger" id="stopTranslateBtn" disabled>Dừng dịch</button>
+              </div>
+              <hr class="section-divider">
+              <p class="eyebrow">WHISPER · SPEECH TO TEXT</p>
+              <h3 class="tool-heading">Tạo phụ đề từ giọng nói</h3>
+              <p class="subtle">Chọn video ở tab Studio trước. Mô hình Whisper chạy ở backend và trả về các mốc thời gian cùng lời thoại gốc.</p>
+              <label class="field-label" for="transcribeLanguage">Ngôn ngữ âm thanh</label>
+              <select id="transcribeLanguage">
+                <option value="auto">Tự nhận diện</option>
+                <option value="en">English</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="zh">Chinese</option>
+                <option value="vi">Vietnamese</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="id">Indonesian</option>
+                <option value="th">Thai</option>
+              </select>
+              <button class="button full-width spaced-button" id="transcribeBtn">Tạo phụ đề từ video đã chọn</button>
+              <hr class="section-divider">
+              <p class="eyebrow">FFMPEG · HARD SUBTITLES</p>
+              <h3 class="tool-heading">Ghép phụ đề vĩnh viễn vào video</h3>
+              <p class="subtle">Dùng chế độ xuất đã chọn ở Studio (Vietsub, song ngữ hoặc bản gốc). Backend tạo một file MP4 mới; file gốc không bị sửa.</p>
+              <button class="button primary full-width" id="burnVideoBtn">Xuất MP4 có phụ đề</button>
+              <p class="footnote">Giới hạn mặc định: 200 MB, tối đa 10 phút/video. Tệp video được tải lên backend của bạn chỉ khi chạy nhận dạng hoặc xuất MP4.</p>
+            </div>
+          </section>
+          <aside class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">OFFLINE WORKFLOW</p><h2>Quy trình Vietsub hoàn chỉnh</h2></div></div>
+            <div class="panel-body">
+              <ol class="workflow">
+                <li><strong>Chọn video</strong><span>Nạp video cục bộ ở tab Studio để xem trước và giữ file cho tác vụ xử lý.</span></li>
+                <li><strong>Tạo phụ đề gốc</strong><span>Whisper nhận dạng giọng nói và tạo timeline SRT nháp.</span></li>
+                <li><strong>Dịch sang tiếng Việt</strong><span>Argos Translate chạy mô hình tích hợp; không dùng API key hoặc gọi nhà cung cấp dịch vụ.</span></li>
+                <li><strong>Rà soát và căn thời gian</strong><span>Sửa lời thoại, căn toàn bộ timeline, tìm/thay thế và kiểm tra chồng lấn.</span></li>
+                <li><strong>Xuất bản</strong><span>Tải SRT/VTT/JSON hoặc ghép phụ đề vĩnh viễn vào MP4 bằng FFmpeg.</span></li>
+              </ol>
+              <div class="callout warning"><strong>Lưu ý triển khai</strong><p>Lần build Docker đầu tải các mô hình mã nguồn mở vào image. Sau đó inference không cần API dịch bên ngoài nhưng cần RAM/CPU đủ dùng. Gói Render Free có thể thiếu tài nguyên cho Whisper.</p></div>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
-    <footer class="footer"><span>Hendy VietSub Tools <b>v2.1.0</b> · Local-first subtitle studio</span><span>Không tải video lên máy chủ · <a href="https://github.com/hendyngo-servers/hendy-tools-vietsub" target="_blank" rel="noopener noreferrer">Mã nguồn</a></span></footer>
+    <footer class="footer"><span>Hendy VietSub Tools <b>v2.2.0</b> · Local-first subtitle studio</span><span>Không tải video lên máy chủ · <a href="https://github.com/hendyngo-servers/hendy-tools-vietsub" target="_blank" rel="noopener noreferrer">Mã nguồn</a></span></footer>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="src/subtitles.js"></script>
