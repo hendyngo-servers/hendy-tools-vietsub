@@ -1,6 +1,13 @@
 # Changelog
 
-## 2.2.1 — 2026-10-22
+## 2.2.2 — 2026-10-22
+
+- Clear legacy localhost backend URLs when opening the editor on a public domain.
+- Show actionable diagnostics for localhost, mixed-content HTTP and cross-origin CORS failures.
+- Update backend default CORS and Render Blueprint to allow the deployed Cloudflare Workers origin.
+- Bump the PWA shell cache so browsers download the fixed app code instead of reusing the previous cached JavaScript.
+
+## 2.2.2 — 2026-10-22
 
 - Add deterministic scripts/build-static.cjs output in dist/; public workflows deploy only the frontend allowlist.
 - Add optional Cloudflare Workers static deployment with credential checks and a tag-driven GitHub Release workflow.
