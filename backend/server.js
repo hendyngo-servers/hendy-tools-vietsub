@@ -57,6 +57,7 @@ const upload = multer({
 });
 
 let workerReady = false;
+let workerStartupError = "";
 let workerInfo = { translationLanguages: [], whisperModelAvailable: false };
 let workerCounter = 0;
 let workerBuffer = '';
@@ -78,12 +79,21 @@ worker.stdout.on('data', (chunk) => {
     if (!line.trim()) continue;
     let message;
     try { message = JSON.parse(line); } catch (_) { continue; }
+    if (message.type === 'startup_error') {
+      workerReady = false;
+      workerStartupError = String(message.error || 'Mô hình offline chưa khởi động được.').slice(0, 500);
+      console.error('Offline Vietsub worker startup failed: ' + workerStartupError);
+      continue;
+    }
     if (message.type === 'ready') {
-      workerReady = true;
       workerInfo = {
         translationLanguages: Array.isArray(message.translationLanguages) ? message.translationLanguages : [],
         whisperModelAvailable: Boolean(message.whisperModelAvailable)
       };
+      workerReady = workerInfo.translationLanguages.includes('vi') &&
+        workerInfo.translationLanguages.includes('en') &&
+        workerInfo.translationLanguages.length > 2;
+      workerStartupError = workerReady ? '' : 'Bộ mô hình dịch không đầy đủ.';
       console.log('Offline Vietsub worker ready. Languages: ' + workerInfo.translationLanguages.join(', '));
       continue;
     }
@@ -102,6 +112,7 @@ worker.stderr.on('data', (chunk) => {
 });
 worker.on('error', (error) => {
   workerReady = false;
+  workerStartupError = 'Không thể khởi động bộ máy offline.';
   console.error('Could not start offline model worker: ' + error.message);
   for (const pending of pendingWorkerRequests.values()) {
     clearTimeout(pending.timer);
@@ -236,8 +247,10 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({
-    ok: true,
+  const ok = workerReady;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    status: ok ? 'ready' : 'starting_or_failed',
     offlineEngineReady: workerReady,
     offlineTranslation: workerReady && workerInfo.translationLanguages.length > 0,
     speechRecognition: workerReady && workerInfo.whisperModelAvailable,
@@ -245,7 +258,8 @@ app.get('/health', (_req, res) => {
     translationLanguages: workerInfo.translationLanguages,
     externalTranslationApiRequired: false,
     maxVideoBytes: MAX_VIDEO_BYTES,
-    maxVideoSeconds: MAX_VIDEO_SECONDS
+    maxVideoSeconds: MAX_VIDEO_SECONDS,
+    ...(workerStartupError ? { workerError: workerStartupError } : {})
   });
 });
 
