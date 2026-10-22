@@ -12,50 +12,50 @@
   let redoStack = [];
   let activeCueId = null;
   let currentVideoUrl = '';
+  let currentVideoFile = null;
   let saveTimer = null;
   let toastTimer = null;
   let apiController = null;
   let isTranslating = false;
   let settings = loadSettings();
 
+  function defaultBackendUrl() {
+    return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      ? 'http://localhost:10000' : '';
+  }
+
   function loadSettings() {
     try {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       return {
-        provider: saved.provider === 'libretranslate' ? 'libretranslate' : 'openai',
-        endpoint: typeof saved.endpoint === 'string' ? saved.endpoint : '',
-        model: typeof saved.model === 'string' ? saved.model : '',
+        backendUrl: typeof saved.backendUrl === 'string' ? saved.backendUrl :
+          (typeof saved.endpoint === 'string' && saved.endpoint.includes('localhost') ? saved.endpoint : defaultBackendUrl()),
         sourceLanguage: typeof saved.sourceLanguage === 'string' ? saved.sourceLanguage : 'auto',
-        targetLanguage: typeof saved.targetLanguage === 'string' ? saved.targetLanguage : 'vi'
+        transcriptionLanguage: typeof saved.transcriptionLanguage === 'string' ? saved.transcriptionLanguage : 'auto'
       };
     } catch (_) {
-      return { provider: 'openai', endpoint: '', model: '', sourceLanguage: 'auto', targetLanguage: 'vi' };
+      return { backendUrl: defaultBackendUrl(), sourceLanguage: 'auto', transcriptionLanguage: 'auto' };
     }
   }
 
   function saveSettings(showToast = true) {
     settings = {
-      provider: $('#providerSelect').value,
-      endpoint: $('#apiEndpoint').value.trim(),
-      model: $('#apiModel').value.trim(),
-      sourceLanguage: $('#sourceLanguage').value.trim() || 'auto',
-      targetLanguage: $('#targetLanguage').value.trim() || 'vi'
+      backendUrl: $('#offlineBackendUrl').value.trim(),
+      sourceLanguage: $('#offlineSourceLanguage').value || 'auto',
+      transcriptionLanguage: $('#transcribeLanguage').value || 'auto'
     };
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      if (showToast) notify('Đã lưu endpoint/model. API key không được lưu.', 'good');
+      if (showToast) notify('Đã lưu cấu hình bộ máy Vietsub. Không cần khóa API dịch bên ngoài.', 'good');
     } catch (_) {
-      if (showToast) notify('Trình duyệt không cho lưu cài đặt; cấu hình vẫn có hiệu lực trong phiên này.', 'warn');
+      if (showToast) notify('Không lưu được cài đặt; cấu hình vẫn có hiệu lực trong phiên này.', 'warn');
     }
   }
 
   function applySettings() {
-    $('#providerSelect').value = settings.provider;
-    $('#apiEndpoint').value = settings.endpoint;
-    $('#apiModel').value = settings.model;
-    $('#sourceLanguage').value = settings.sourceLanguage;
-    $('#targetLanguage').value = settings.targetLanguage;
-    updateProviderFields();
+    $('#offlineBackendUrl').value = settings.backendUrl || defaultBackendUrl();
+    $('#offlineSourceLanguage').value = settings.sourceLanguage || 'auto';
+    $('#transcribeLanguage').value = settings.transcriptionLanguage || 'auto';
   }
 
   function notify(message, kind = 'good') {
@@ -367,6 +367,7 @@
 
   function loadVideo(file) {
     if (!file) return;
+    currentVideoFile = file;
     if (!file.type.startsWith('video/')) { notify('Tệp đã chọn không phải video.', 'warn'); return; }
     if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
     currentVideoUrl = URL.createObjectURL(file);
@@ -380,6 +381,7 @@
   }
 
   function removeVideo() {
+    currentVideoFile = null;
     const video = $('#video');
     video.pause(); video.removeAttribute('src'); video.load(); video.classList.add('hidden');
     $('.video-placeholder').classList.remove('hidden');
@@ -466,116 +468,71 @@
     log.style.color = kind === 'bad' ? 'var(--red)' : kind === 'good' ? 'var(--teal)' : '';
   }
 
-  function updateProviderFields() {
-    const libre = $('#providerSelect').value === 'libretranslate';
-    $('#modelField').classList.toggle('hidden', libre);
-    if (libre) $('#apiEndpoint').placeholder = 'https://your-server.example/translate';
-    else $('#apiEndpoint').placeholder = 'https://your-provider.example/v1/chat/completions';
-  }
-
-  function apiConfiguration() {
-    const endpoint = $('#apiEndpoint').value.trim();
-    const key = $('#apiKey').value.trim();
-    const provider = $('#providerSelect').value;
-    const model = $('#apiModel').value.trim();
+  function getOfflineBackendUrl() {
+    const raw = $('#offlineBackendUrl').value.trim().replace(/\/+$/, '');
+    if (!raw) throw new Error('Nhập URL backend Vietsub của bạn trước. Không cần API key.');
     let url;
-    try { url = new URL(endpoint); } catch (_) { throw new Error('Endpoint phải là URL hợp lệ.'); }
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Endpoint chỉ được dùng HTTP hoặc HTTPS.');
-    if (url.username || url.password) throw new Error('Không nhúng thông tin xác thực vào URL endpoint.');
-    if (provider === 'openai' && !model) throw new Error('Cần nhập tên model.');
-    if (provider === 'openai' && !key) throw new Error('Cần nhập API key cho endpoint OpenAI-compatible.');
-    return { endpoint: url.href, key, provider, model, source: $('#sourceLanguage').value.trim() || 'auto', target: $('#targetLanguage').value.trim() || 'vi' };
+    try { url = new URL(raw); } catch (_) { throw new Error('URL backend chưa hợp lệ.'); }
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Backend chỉ hỗ trợ HTTP hoặc HTTPS.');
+    if (url.username || url.password) throw new Error('Không nhúng thông tin đăng nhập vào URL backend.');
+    return url.href.replace(/\/+$/, '');
   }
 
-  async function fetchJson(url, options, signal) {
-    const response = await fetch(url, { ...options, signal });
+  async function readBackendJson(response) {
     const raw = await response.text();
-    if (!response.ok) throw new Error(`API trả HTTP ${response.status}: ${raw.slice(0, 350) || response.statusText}`);
-    let json;
-    try { json = raw ? JSON.parse(raw) : {}; }
-    catch (_) { throw new Error('Phản hồi API không phải JSON hợp lệ.'); }
-    return json;
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch (_) { throw new Error('Backend trả về dữ liệu không hợp lệ.'); }
+    if (!response.ok) throw new Error(data.error || ('HTTP ' + response.status));
+    return data;
   }
 
-  function parseTranslationPayload(content) {
-    let text = String(content ?? '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    let parsed;
-    try { parsed = JSON.parse(text); }
-    catch (_) {
-      const first = text.indexOf('['), last = text.lastIndexOf(']');
-      if (first < 0 || last <= first) throw new Error('Model không trả về mảng JSON hợp lệ.');
-      parsed = JSON.parse(text.slice(first, last + 1));
+  async function checkOfflineBackend() {
+    let base;
+    try { base = getOfflineBackendUrl(); saveSettings(false); }
+    catch (error) { notify(error.message, 'warn'); return; }
+    $('#checkOfflineBtn').disabled = true;
+    setTranslateLog('Đang kiểm tra mô hình dịch, Whisper và FFmpeg…');
+    try {
+      const response = await fetch(base + '/health', { method: 'GET', cache: 'no-store' });
+      const data = await readBackendJson(response);
+      if (!data.ok) throw new Error('Backend chưa sẵn sàng.');
+      const lines = [
+        'Backend kết nối được.',
+        'Dịch offline: ' + (data.offlineTranslation ? 'SẴN SÀNG' : 'CHƯA SẴN SÀNG'),
+        'Whisper nhận dạng giọng nói: ' + (data.speechRecognition ? 'SẴN SÀNG' : 'CHƯA SẴN SÀNG'),
+        'FFmpeg ghép video: ' + (data.videoRendering ? 'SẴN SÀNG' : 'CHƯA SẴN SÀNG'),
+        data.translationLanguages ? 'Ngôn ngữ nguồn: ' + data.translationLanguages.join(', ') : ''
+      ].filter(Boolean).join('\n');
+      setTranslateLog(lines, data.offlineTranslation && data.speechRecognition && data.videoRendering ? 'good' : 'bad');
+      if (!data.offlineTranslation || !data.speechRecognition || !data.videoRendering) {
+        notify('Backend đang chạy nhưng một hoặc nhiều mô hình chưa sẵn sàng.', 'warn');
+      } else {
+        notify('Bộ máy Vietsub tích hợp đã sẵn sàng; không cần API key.', 'good');
+      }
+    } catch (error) {
+      setTranslateLog('Không kết nối được backend: ' + error.message + '. Kiểm tra URL, CORS và trạng thái triển khai.', 'bad');
+      notify('Chưa kết nối được bộ máy Vietsub.', 'bad');
+    } finally {
+      $('#checkOfflineBtn').disabled = false;
     }
-    if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.translations)) parsed = parsed.translations;
-    if (!Array.isArray(parsed)) throw new Error('Kết quả dịch phải là một mảng chuỗi.');
-    return parsed.map((item) => typeof item === 'string' ? item : String(item?.translation ?? item?.text ?? ''));
-  }
-
-  async function translateOpenAiBatch(batch, config, signal) {
-    const payload = {
-      model: config.model,
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: 'Bạn là biên dịch viên phụ đề chuyên nghiệp. Dịch sang tiếng Việt tự nhiên, ngắn gọn, giữ nguyên ý, tên riêng và thứ tự. Chỉ trả về một mảng JSON các chuỗi; mảng phải có đúng số phần tử như đầu vào. Không thêm giải thích.' },
-        { role: 'user', content: `Ngôn ngữ nguồn: ${config.source}. Ngôn ngữ đích: ${config.target}. Dịch các câu sau theo đúng thứ tự.\n${JSON.stringify(batch.map((cue) => cue.original))}` }
-      ]
-    };
-    const json = await fetchJson(config.endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.key}` },
-      body: JSON.stringify(payload)
-    }, signal);
-    const content = json?.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') throw new Error('Phản hồi thiếu choices[0].message.content.');
-    const translations = parseTranslationPayload(content);
-    if (translations.length !== batch.length) throw new Error(`Model trả ${translations.length} bản dịch cho ${batch.length} dòng.`);
-    return translations;
-  }
-
-  async function translateLibreCue(cue, config, signal) {
-    const body = { q: cue.original, source: config.source, target: config.target, format: 'text' };
-    if (config.key) body.api_key = config.key;
-    const json = await fetchJson(config.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, signal);
-    if (typeof json.translatedText !== 'string') throw new Error('Phản hồi LibreTranslate thiếu translatedText.');
-    return json.translatedText;
   }
 
   async function testApi() {
-    let config;
-    try { config = apiConfiguration(); }
-    catch (error) { notify(error.message, 'warn'); return; }
-    apiController = new AbortController();
-    $('#testApiBtn').disabled = true;
-    setTranslateLog('Đang kiểm tra kết nối endpoint…');
-    try {
-      if (config.provider === 'openai') {
-        const json = await fetchJson(config.endpoint, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.key}` },
-          body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: 'Reply with exactly: OK' }], max_tokens: 8, temperature: 0 })
-        }, apiController.signal);
-        if (typeof json?.choices?.[0]?.message?.content !== 'string') throw new Error('Endpoint phản hồi nhưng thiếu dữ liệu Chat Completions.');
-      } else {
-        await translateLibreCue({ original: 'Hello', vi: '' }, config, apiController.signal);
-      }
-      setTranslateLog('Kết nối thành công. Kiểm tra cơ bản với endpoint đã hoàn tất.', 'good');
-      notify('Kiểm tra API thành công.', 'good');
-    } catch (error) {
-      const message = error.name === 'AbortError' ? 'Đã hủy kiểm tra.' : `${error.message}${error instanceof TypeError ? ' — có thể do CORS, TLS hoặc URL.' : ''}`;
-      setTranslateLog(`Không kiểm tra được: ${message}`, 'bad');
-      notify('Không kết nối được API. Xem nhật ký.', 'bad');
-    } finally { apiController = null; $('#testApiBtn').disabled = false; }
+    return checkOfflineBackend();
   }
 
   async function translateCues(all = false) {
     if (isTranslating) return;
     if (!cues.length) { notify('Hãy nhập phụ đề trước khi dịch.', 'warn'); return; }
-    let config;
-    try { config = apiConfiguration(); }
+    let base;
+    try { base = getOfflineBackendUrl(); }
     catch (error) { notify(error.message, 'warn'); return; }
+
+    const source = $('#offlineSourceLanguage').value || 'auto';
     const targets = cues.filter((cue) => cue.original.trim() && (all || !cue.vi.trim()));
     if (!targets.length) { notify(all ? 'Không có lời gốc để dịch.' : 'Tất cả dòng có lời gốc đã được dịch.', 'good'); return; }
-    const estimated = config.provider === 'openai' ? Math.ceil(targets.length / 10) : targets.length;
-    if (!window.confirm(`Gửi ${targets.length} dòng phụ đề đến endpoint đã cấu hình (${estimated} yêu cầu dự kiến)? Hãy chắc chắn bạn tin cậy nhà cung cấp.`)) return;
+    if (!window.confirm('Dịch ' + targets.length + ' dòng bằng mô hình offline tích hợp sẵn? Không dùng API key hoặc gửi văn bản đến nhà cung cấp dịch bên thứ ba.')) return;
+
     saveSettings(false);
     checkpoint();
     isTranslating = true;
@@ -586,36 +543,40 @@
     $('#apiProgress').style.width = '0%';
     let completed = 0;
     let stopped = false;
-    setTranslateLog(`Bắt đầu dịch ${targets.length} dòng…`);
+    setTranslateLog('Đang khởi chạy bộ dịch offline cho ' + targets.length + ' dòng…');
+
     try {
-      if (config.provider === 'openai') {
-        const batches = [];
-        for (let i = 0; i < targets.length; i += 10) batches.push(targets.slice(i, i + 10));
-        for (let i = 0; i < batches.length; i += 1) {
-          const batch = batches[i];
-          const translations = await translateOpenAiBatch(batch, config, apiController.signal);
-          batch.forEach((cue, j) => { cue.vi = translations[j].trim(); });
-          completed += batch.length;
-          updateTranslationProgress(completed, targets.length);
-          setTranslateLog(`Đã dịch ${completed}/${targets.length} dòng (${Math.round(completed / targets.length * 100)}%).`);
+      const batches = [];
+      for (let i = 0; i < targets.length; i += 20) batches.push(targets.slice(i, i + 20));
+      for (const batch of batches) {
+        const response = await fetch(base + '/api/translate-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts: batch.map((cue) => cue.original), source: source, target: 'vi' }),
+          signal: apiController.signal
+        });
+        const data = await readBackendJson(response);
+        if (!Array.isArray(data.translations) || data.translations.length !== batch.length) {
+          throw new Error('Số lượng bản dịch nhận về không khớp số dòng đã gửi.');
         }
-      } else {
-        for (const cue of targets) {
-          cue.vi = (await translateLibreCue(cue, config, apiController.signal)).trim();
-          completed += 1;
-          updateTranslationProgress(completed, targets.length);
-          setTranslateLog(`Đã dịch ${completed}/${targets.length} dòng (${Math.round(completed / targets.length * 100)}%).`);
-        }
+        batch.forEach((cue, index) => { cue.vi = String(data.translations[index] || '').trim(); });
+        completed += batch.length;
+        updateTranslationProgress(completed, targets.length);
+        setTranslateLog('Đã dịch offline ' + completed + '/' + targets.length + ' dòng (' +
+          Math.round(completed / targets.length * 100) + '%).');
       }
-      setTranslateLog(`Hoàn tất: ${completed}/${targets.length} dòng. Rà soát bản dịch trước khi xuất.`, 'good');
-      notify(`Đã dịch ${completed} dòng. Hãy rà soát trước khi xuất.`, 'good');
+      setTranslateLog('Hoàn tất ' + completed + '/' + targets.length + ' dòng bằng mô hình offline. Hãy rà soát bản dịch.', 'good');
+      notify('Đã dịch ' + completed + ' dòng Vietsub offline.', 'good');
     } catch (error) {
       stopped = error.name === 'AbortError';
-      const message = stopped ? `Đã dừng sau ${completed}/${targets.length} dòng.` : `Lỗi sau ${completed}/${targets.length} dòng: ${error.message}`;
+      const message = stopped
+        ? 'Đã dừng sau ' + completed + '/' + targets.length + ' dòng.'
+        : 'Lỗi sau ' + completed + '/' + targets.length + ' dòng: ' + error.message;
       setTranslateLog(message, stopped ? '' : 'bad');
       notify(message, stopped ? 'warn' : 'bad');
     } finally {
-      isTranslating = false; apiController = null;
+      isTranslating = false;
+      apiController = null;
       $('#translateMissingBtn').disabled = false;
       $('#translateAllBtn').disabled = false;
       $('#stopTranslateBtn').disabled = true;
@@ -624,8 +585,82 @@
   }
 
   function updateTranslationProgress(done, total) {
-    $('#apiProgress').style.width = `${total ? Math.round(done / total * 100) : 0}%`;
+    $('#apiProgress').style.width = (total ? Math.round(done / total * 100) : 0) + '%';
     updateStats();
+  }
+
+  async function transcribeVideo() {
+    if (!currentVideoFile) { notify('Chọn video ở tab Studio trước khi tạo phụ đề.', 'warn'); return; }
+    let base;
+    try { base = getOfflineBackendUrl(); }
+    catch (error) { notify(error.message, 'warn'); return; }
+    if (currentVideoFile.size > 200 * 1024 * 1024) {
+      notify('Video vượt quá giới hạn tải lên 200 MB.', 'warn'); return;
+    }
+    if (cues.length && !window.confirm('Tạo phụ đề mới sẽ thay thế ' + cues.length + ' dòng đang có. Tiếp tục?')) return;
+
+    const form = new FormData();
+    form.append('video', currentVideoFile, currentVideoFile.name);
+    form.append('language', $('#transcribeLanguage').value || 'auto');
+    $('#transcribeBtn').disabled = true;
+    setTranslateLog('Đang gửi video đến backend của bạn để nhận dạng giọng nói bằng Whisper offline…');
+    try {
+      const response = await fetch(base + '/api/transcribe', { method: 'POST', body: form });
+      const data = await readBackendJson(response);
+      if (!Array.isArray(data.cues) || !data.cues.length) throw new Error('Không có dòng phụ đề nào được tạo.');
+      checkpoint();
+      cues = Core.normalizeCues(data.cues.map((cue) => Core.createCue(
+        Number(cue.start), Number(cue.end), String(cue.original || ''), String(cue.vi || '')
+      )));
+      activeCueId = cues[0]?.id || null;
+      renderCues(); updateStats(); updateCaption(); queueSave(); switchTab('editorPane');
+      const language = data.detectedLanguage || 'không rõ';
+      setTranslateLog('Đã nhận dạng ' + cues.length + ' dòng. Ngôn ngữ âm thanh: ' + language +
+        '. Bản ghi đang ở cột lời gốc; chạy dịch offline để tạo Vietsub.', 'good');
+      notify('Đã tạo ' + cues.length + ' dòng phụ đề từ video.', 'good');
+    } catch (error) {
+      setTranslateLog('Không tạo được phụ đề: ' + error.message, 'bad');
+      notify('Nhận dạng giọng nói thất bại.', 'bad');
+    } finally {
+      $('#transcribeBtn').disabled = false;
+    }
+  }
+
+  async function burnVideo() {
+    if (!currentVideoFile) { notify('Chọn video trước khi ghép phụ đề.', 'warn'); return; }
+    if (!cues.length) { notify('Chưa có phụ đề để ghép.', 'warn'); return; }
+    let base;
+    try { base = getOfflineBackendUrl(); }
+    catch (error) { notify(error.message, 'warn'); return; }
+    if (currentVideoFile.size > 200 * 1024 * 1024) {
+      notify('Video vượt quá giới hạn tải lên 200 MB.', 'warn'); return;
+    }
+    const mode = $('#exportMode').value;
+    const subtitleSrt = Core.buildSrt(cues, mode);
+    if (!subtitleSrt.trim()) { notify('Không tạo được dữ liệu SRT.', 'warn'); return; }
+    const form = new FormData();
+    form.append('video', currentVideoFile, currentVideoFile.name);
+    form.append('subtitleSrt', subtitleSrt);
+    form.append('fontSize', $('#fontSize').value);
+    $('#burnVideoBtn').disabled = true;
+    setTranslateLog('Đang tải video đến backend của bạn; FFmpeg sẽ ghép phụ đề vĩnh viễn vào file MP4 mới…');
+    try {
+      const response = await fetch(base + '/api/render', { method: 'POST', body: form });
+      if (!response.ok) await readBackendJson(response);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = 'hendy-vietsub.mp4'; anchor.rel = 'noopener';
+      document.body.append(anchor); anchor.click(); anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setTranslateLog('Đã xuất hendy-vietsub.mp4 có phụ đề vĩnh viễn.', 'good');
+      notify('Đã tạo video Vietsub mới.', 'good');
+    } catch (error) {
+      setTranslateLog('Không ghép được phụ đề: ' + error.message, 'bad');
+      notify('Xuất video Vietsub thất bại.', 'bad');
+    } finally {
+      $('#burnVideoBtn').disabled = false;
+    }
   }
 
   async function copyAllVietnamese() {
@@ -703,14 +738,17 @@
     $('#replaceBtn').addEventListener('click', replaceAllText);
     $('#cleanBtn').addEventListener('click', cleanAllText);
     $('#copyViBtn').addEventListener('click', copyAllVietnamese);
-    $('#providerSelect').addEventListener('change', () => { updateProviderFields(); saveSettings(false); });
-    ['apiEndpoint', 'apiModel', 'sourceLanguage', 'targetLanguage'].forEach((id) => $(`#${id}`).addEventListener('change', () => saveSettings(false)));
-    $('#saveApiSettingsBtn').addEventListener('click', () => saveSettings(true));
-    $('#clearApiKeyBtn').addEventListener('click', () => { $('#apiKey').value = ''; notify('Đã xóa API key khỏi trường nhập của phiên hiện tại.', 'good'); });
-    $('#testApiBtn').addEventListener('click', testApi);
+    ['offlineBackendUrl', 'offlineSourceLanguage', 'transcribeLanguage'].forEach((id) =>
+      $('#' + id).addEventListener('change', () => saveSettings(false)));
+    $('#saveOfflineSettingsBtn').addEventListener('click', () => saveSettings(true));
+    $('#checkOfflineBtn').addEventListener('click', checkOfflineBackend);
     $('#translateMissingBtn').addEventListener('click', () => translateCues(false));
     $('#translateAllBtn').addEventListener('click', () => translateCues(true));
-    $('#stopTranslateBtn').addEventListener('click', () => { if (apiController) { apiController.abort(); setTranslateLog('Đang yêu cầu dừng…'); } });
+    $('#stopTranslateBtn').addEventListener('click', () => {
+      if (apiController) { apiController.abort(); setTranslateLog('Đang yêu cầu dừng…'); }
+    });
+    $('#transcribeBtn').addEventListener('click', transcribeVideo);
+    $('#burnVideoBtn').addEventListener('click', burnVideo);
     $$('.tab').forEach((tab) => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
 
     $('#cueList').addEventListener('focusin', (event) => {
