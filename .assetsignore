@@ -31,3 +31,5 @@ wrangler.jsonc
 *.py
 *.pyc
 __pycache__/
+
+worker.js
