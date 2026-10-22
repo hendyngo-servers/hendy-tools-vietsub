@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hendy VietSub Offline Studio v2.2
 // @namespace    https://github.com/hendyngo-servers
-// @version      2.2.1
+// @version      2.2.2
 // @description  Mở Hendy VietSub Studio với bộ dịch offline, Whisper và FFmpeg; không cần API key dịch thuật.
 // @match        http://*/*
 // @match        https://*/*
