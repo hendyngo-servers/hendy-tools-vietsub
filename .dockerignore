@@ -1,5 +1,6 @@
 *
 !package.json
+!requirements.txt
 !backend/
 !backend/**
 !Dockerfile
