@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Hendy Tools Vietsub v2.0
-// @namespace    https://github.com/hendyngo-servers/hendy-tools-vietsub
+// @namespace    https://hendyngo-servers.github.io/hendy-tools-vietsub/
 // @version      2.0.0
 // @description  Nút mở nhanh trang Hendy Tools Vietsub Studio.
 // @match        http://*/*
