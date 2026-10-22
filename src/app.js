@@ -20,8 +20,13 @@
   let settings = loadSettings();
 
   function defaultBackendUrl() {
-    return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-      ? 'http://localhost:10000' : '';
+    const localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (localHost && location.port === '8080') return location.origin;
+    if (localHost) return 'http://localhost:10000';
+    // A self-hosted single-origin deployment (for example, Nginx proxying /api to the backend).
+    if (location.hostname && !location.hostname.endsWith('.github.io')) return location.origin;
+    // GitHub Pages is static-only, so the user must provide their own backend URL.
+    return '';
   }
 
   function loadSettings() {
