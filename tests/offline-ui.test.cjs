@@ -35,6 +35,7 @@ test('public deployment rejects stale localhost backend URL and gives secure set
     'function isLoopbackBackendUrl(value)',
     'isLoopbackBackendUrl(backendUrl)',
     'Website workers.dev',
+    'URL localhost cũ đã được xóa',
     'URL HTTPS công khai',
     'location.origin'
   ]) assert.ok(app.includes(marker), 'Missing backend connection safety behavior: ' + marker);
