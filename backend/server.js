@@ -40,7 +40,7 @@ app.use(express.json({ limit: '512kb' }));
 
 const translateLimiter = rateLimit({
   windowMs: 60_000,
-  limit: 40,
+  limit: 120,
   standardHeaders: 'draft-8',
   legacyHeaders: false
 });
@@ -179,6 +179,7 @@ app.post('/api/render', renderLimiter, (req, res, next) => {
 }, async (req, res) => {
   const uploaded = req.file;
   let workDir = null;
+  let downloadInProgress = false;
   if (!uploaded) return res.status(400).json({ error: 'Thiếu file video (field name: video).' });
 
   try {
@@ -230,6 +231,7 @@ app.post('/api/render', renderLimiter, (req, res, next) => {
     ], FFMPEG_TIMEOUT_MS, false);
 
     res.setHeader('Cache-Control', 'no-store');
+    downloadInProgress = true;
     res.download(outputPath, 'hendy-vietsub.mp4', (error) => {
       cleanTempDir(workDir);
       if (error && !res.headersSent) {
@@ -246,6 +248,7 @@ app.post('/api/render', renderLimiter, (req, res, next) => {
     }
   } finally {
     await fs.rm(uploaded.path, { force: true }).catch(() => {});
+    if (!downloadInProgress) await cleanTempDir(workDir);
   }
 });
 
