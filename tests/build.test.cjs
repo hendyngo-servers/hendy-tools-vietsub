@@ -29,20 +29,16 @@ test('release build copies frontend assets but never publishes backend source', 
   assert.equal(version.offlineAiRequiresBackend, true);
 });
 
-
-test('direct Cloudflare deploy uses an existing root directory and a frontend-only asset allowlist', () => {
+test('direct Cloudflare deploy creates dist during the bun install lifecycle', () => {
   const wrangler = JSON.parse(fs.readFileSync(path.join(root, 'wrangler.jsonc'), 'utf8'));
-  const ignore = fs.readFileSync(path.join(root, '.assetsignore'), 'utf8');
-  const version = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
-  assert.equal(wrangler.assets.directory, './dist');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.equal(pkg.scripts.postinstall, 'node scripts/build-static.cjs', 'Cloudflare dependency install must create dist before Wrangler runs.');
-  assert.ok(fs.existsSync(path.join(root, 'index.html')), 'Root frontend must exist for direct Wrangler deploy.');
-  assert.equal(version.version, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version);
-  for (const entry of ['backend/', 'tests/', 'userscript/', 'scripts/', 'docs/', 'node_modules/', 'dist/', 'package.json', 'wrangler.jsonc', 'worker.js', '.assetsignore']) {
-    assert.ok(ignore.split(/\r?\n/).includes(entry), 'Missing deployment exclusion: ' + entry);
-  }
-  for (const entry of ['!index.html', '!manifest.webmanifest', '!sw.js', '!version.json', '!assets/**', '!src/**']) {
-    assert.ok(ignore.split(/\r?\n/).includes(entry), 'Missing public asset allowlist entry: ' + entry);
-  }
+  const buildScript = fs.readFileSync(path.join(root, 'scripts/build-static.cjs'), 'utf8');
+  assert.equal(wrangler.assets.directory, './dist');
+  assert.equal(pkg.scripts.postinstall, 'node scripts/build-static.cjs',
+    'Cloudflare bun install must create dist before npx wrangler deploy runs.');
+  assert.ok(buildScript.includes("const staticFiles = ['index.html', 'manifest.webmanifest', 'sw.js']"));
+  assert.ok(buildScript.includes("const staticDirectories = ['assets', 'src']"));
+  execFileSync(process.execPath, ['scripts/build-static.cjs'], { cwd: root, stdio: 'pipe' });
+  assert.ok(fs.statSync(path.join(dist, 'index.html')).isFile(),
+    'Configured Wrangler asset directory must exist before the deploy command executes.');
 });
