@@ -1,0 +1,6 @@
+{
+  "name": "hendy-tools-vietsub",
+  "version": "2.2.1",
+  "staticOnly": true,
+  "offlineAiRequiresBackend": true
+}
