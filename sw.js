@@ -1,5 +1,5 @@
 'use strict';
-const CACHE_NAME = 'hendy-vietsub-shell-v2.1.0';
+const CACHE_NAME = 'hendy-vietsub-shell-v2.2.0';
 const APP_SHELL = ['./', './index.html', './assets/app.css', './src/subtitles.js', './src/app.js', './manifest.webmanifest', './assets/icon.svg'];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
