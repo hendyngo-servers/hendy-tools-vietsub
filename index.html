@@ -83,10 +83,11 @@
             <div class="panel-body">
               <div class="callout">
                 <strong>Dịch máy và nhận dạng chạy bằng mô hình đi kèm backend</strong>
-                <p>Không cần tài khoản dịch thuật, API key hoặc dịch vụ AI bên thứ ba. Backend do bạn quản lý dùng Argos Translate, Whisper và FFmpeg. GitHub Pages chỉ là giao diện tĩnh nên cần URL backend riêng để chạy mô hình.</p>
+                <p>Không cần tài khoản dịch thuật, API key hoặc dịch vụ AI bên thứ ba. Argos Translate, Whisper và FFmpeg chạy trên backend riêng. Cloudflare Workers chỉ phục vụ giao diện; khi mở trang công khai, localhost không phải là backend. Hãy nhập URL HTTPS công khai của backend đã triển khai.</p>
               </div>
               <label class="field-label" for="offlineBackendUrl">URL backend Vietsub của bạn</label>
-              <input id="offlineBackendUrl" type="url" placeholder="http://localhost:10000 hoặc https://ten-dich-vu.onrender.com" autocomplete="url">
+              <input id="offlineBackendUrl" type="url" placeholder="https://ten-backend.onrender.com" autocomplete="url">
+              <p class="subtle" id="offlineBackendHint">Lưu ý: localhost chỉ dùng khi chạy ứng dụng trên chính máy bạn. Với website workers.dev, cần URL HTTPS public của backend và backend phải cho phép origin của website này trong CORS.</p>
               <div class="actions-row spaced">
                 <button class="button primary" id="checkOfflineBtn">Kiểm tra bộ máy</button>
                 <button class="button" id="saveOfflineSettingsBtn">Lưu URL</button>
