@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${ github.ref }
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -25,30 +25,28 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${ inputs.tag || github.ref }
+          ref: ${{ inputs.tag || github.ref }}
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Validate release tag matches package version
         env:
-          RELEASE_TAG: ${ inputs.tag || github.ref_name }
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           node -e "const p=require('./package.json'); const expected='v'+p.version; if(process.env.RELEASE_TAG!==expected){console.error('Tag must equal '+expected+', got '+process.env.RELEASE_TAG);process.exit(1)}"
-      - name: Run tests
+      - name: Run tests and build
         run: npm run check
-      - name: Build static frontend artifact
-        run: npm run build:static
       - name: Package static frontend ZIP
         env:
-          RELEASE_TAG: ${ inputs.tag || github.ref_name }
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           cd dist
           zip -qr "../hendy-vietsub-web-$RELEASE_TAG.zip" .
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${ github.token }
-          RELEASE_TAG: ${ inputs.tag || github.ref_name }
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           gh release create "$RELEASE_TAG" "hendy-vietsub-web-$RELEASE_TAG.zip" \
             --title "Hendy VietSub $RELEASE_TAG" \
