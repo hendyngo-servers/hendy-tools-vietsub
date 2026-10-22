@@ -1,83 +1,56 @@
-# Hendy Tools Vietsub 2.1.0
+# Hendy Tools Vietsub 2.2.0 — Offline Studio
 
-Bộ biên tập phụ đề chạy phía trình duyệt, ưu tiên xử lý cục bộ. Không cần backend, framework, build step hay npm dependencies để chạy ứng dụng.
+Bộ công cụ Vietsub tích hợp mô hình dịch và nhận dạng giọng nói mã nguồn mở. Khi container đã được build, dịch phụ đề và nhận dạng giọng nói không gọi API suy luận bên ngoài; không cần API key, tài khoản nhà cung cấp hay gói dịch vụ AI tính phí theo lượt.
 
-## Tính năng 2.1
+## Công cụ tích hợp
 
-- Nhập SRT/WebVTT, sắp xếp theo thời gian, sửa lời gốc và Vietsub riêng biệt.
-- Xem trước video từ máy tính và hiển thị phụ đề theo thời gian phát; video không được tải lên máy chủ.
-- Tìm/lọc dòng chưa dịch, thêm/xóa dòng và sửa thời gian trực tiếp.
-- Hoàn tác/làm lại, tự lưu nháp cục bộ và khôi phục khi mở lại cùng trình duyệt.
-- Căn chỉnh toàn bộ timeline, tìm/thay thế, làm sạch khoảng trắng, kiểm tra dòng trống, thứ tự và chồng lấn.
-- Xuất SRT/VTT theo bản dịch, bản gốc hoặc song ngữ; sao lưu/khôi phục JSON.
-- Dịch qua API tương thích OpenAI Chat Completions hoặc LibreTranslate-compatible do người dùng tự cấu hình.
-- Có shell cache service worker để ứng dụng tiếp tục tải khi đã mở online một lần trên origin hỗ trợ HTTPS.
-- Kèm Tampermonkey userscript dạng cửa sổ nổi với trình sửa, video cục bộ, thao tác timeline và dịch API.
-- Không có analytics hoặc gửi dữ liệu nền.
+- Nhập, sửa và xuất SRT/WebVTT; sửa timeline, hoàn tác/làm lại, lưu nháp cục bộ.
+- Xem trước video cục bộ, tìm/lọc, sắp xếp, căn chỉnh thời gian, thay thế văn bản, làm sạch và kiểm tra phụ đề.
+- Nhận dạng lời thoại từ video thành phụ đề nháp bằng mô hình Whisper tiny chạy cục bộ trong backend.
+- Dịch phụ đề offline sang tiếng Việt bằng Argos Translate, hỗ trợ tiếng Anh, Nhật, Hàn, Trung, Tây Ban Nha, Pháp, Đức, Indonesia và Thái. Với nguồn ngoài tiếng Anh, mô hình đi qua tiếng Anh.
+- Ghép phụ đề vĩnh viễn vào một file MP4 mới bằng FFmpeg.
 
-## Chạy cục bộ
+## Cách dùng
 
-Mở `index.html` bằng Chrome/Edge/Firefox hiện đại để biên tập và xuất tệp. Trên Windows có thể chạy `run-local.bat`. Để bật service worker/PWA, chạy qua HTTP(S), ví dụ:
+Các công cụ biên tập, xem trước và xuất SRT/VTT/JSON hoạt động trực tiếp trong trình duyệt mà không cần backend.
 
-```bash
-npx serve .
-```
+Để bật dịch neural offline, nhận dạng giọng nói và xuất MP4 có phụ đề, chạy backend tự quản lý. GitHub Pages chỉ phục vụ tệp tĩnh, không thể tự chạy mô hình Python hoặc FFmpeg, vì vậy giao diện cần URL của backend riêng — đây không phải API dịch vụ bên thứ ba và không cần khóa API.
 
-Hoặc dùng Live Server trong trình soạn thảo. Không cần chạy `npm install`.
+### Chạy với Docker
+
+Yêu cầu Docker Desktop hoặc Docker Engine và kết nối internet trong lần build đầu để tải mô hình mã nguồn mở vào image:
+
+\`\`\`bash
+docker build -t hendy-vietsub .
+docker run --rm -p 10000:10000 -e ALLOWED_ORIGINS=http://localhost:8080 hendy-vietsub
+\`\`\`
+
+Mở giao diện, đến tab **Dịch & tạo Vietsub**, nhập URL backend \`http://localhost:10000\`, rồi bấm **Kiểm tra bộ máy**. Với frontend GitHub Pages, nhập URL public của backend và bảo đảm origin frontend nằm trong biến \`ALLOWED_ORIGINS\`.
+
+### Render
+
+Tạo Blueprint từ \`render.yaml\`. Lần build đầu tải mô hình Argos và Whisper (image lớn hơn static site và mất nhiều thời gian hơn). Sau deploy, kiểm tra \`/health\`; các cờ \`offlineEngineReady\`, \`offlineTranslation\`, \`speechRecognition\`, \`videoRendering\` cần là \`true\`.
+
+Gói Free có thể ngủ, hết thời gian hoặc thiếu RAM khi chạy mô hình. Khuyến nghị môi trường có ít nhất 2 GB RAM; hãy kiểm tra giới hạn và giá Render trước khi chọn gói trả phí.
+
+## Quyền riêng tư và giới hạn
+
+Video/âm thanh chỉ được tải lên backend khi người dùng chủ động chọn **Tạo phụ đề từ giọng nói** hoặc **Xuất MP4 có phụ đề**. Tệp được xử lý tạm thời và xóa sau tác vụ. Sửa phụ đề và xuất SRT/VTT vẫn làm trong trình duyệt. Hãy chỉ dùng backend bạn kiểm soát hoặc tin cậy.
+
+Mặc định giới hạn video 200 MB/10 phút; dịch tối đa 40 dòng mỗi nhóm; 3 tác vụ media mỗi IP trong 15 phút. Dịch máy có thể sai tên riêng, thành ngữ và ngữ cảnh nên cần rà soát trước khi xuất.
+
+## Công nghệ
+
+- Argos Translate: https://github.com/argosopentech/argos-translate
+- faster-whisper: https://github.com/SYSTRAN/faster-whisper
+- FFmpeg: xử lý và ghép phụ đề vào video.
 
 ## Kiểm thử
 
-Yêu cầu Node.js 20 trở lên:
+Node.js 20 trở lên:
 
-```bash
+\`\`\`bash
 npm run check
-```
+\`\`\`
 
-Bộ kiểm thử sử dụng `node:test` tích hợp, không tải thư viện bên ngoài.
-
-## Dịch API
-
-1. Chọn nhà cung cấp và nhập endpoint HTTPS, tên model (nếu dùng Chat Completions), ngôn ngữ nguồn/đích.
-2. Dán API key trực tiếp vào trường phiên hiện tại. **API key không được lưu vào localStorage, bản nháp hoặc file JSON.**
-3. Xác nhận hộp thoại trước khi gửi phụ đề. Chỉ văn bản các dòng được chọn được gửi; video không được gửi.
-4. Endpoint phải cho phép CORS phù hợp và chấp nhận payload của nhà cung cấp.
-
-Chi phí API (nếu có) do tài khoản của bạn chịu. Chỉ gửi văn bản đến máy chủ mà bạn tin cậy. Tránh dùng khóa có quyền quản trị rộng trong trình duyệt.
-
-## Tampermonkey
-
-Cài `userscript/hendy-vietsub-subtitle-studio.user.js` để mở bảng công cụ trên trang web. Script không chạy trong iframe. Video và phụ đề vẫn được xử lý trong tab trình duyệt; chỉ nội dung phụ đề được gửi đi khi bạn chủ động chạy dịch API.
-
-`userscript/hendy-tools-vietsub.user.js` là launcher gọn nhẹ. Launcher mở URL GitHub Pages mặc định; URL này chỉ hoạt động sau khi repository đã bật Pages.
-
-## GitHub Pages
-
-Ứng dụng là static site: đặt `index.html` ở root và publish thư mục root bằng GitHub Pages (Settings → Pages). Có thể mở trực tiếp link Pages sau khi repository đã bật Pages. GitHub Pages không được tự bật bởi mã nguồn này.
-
-## Cấu trúc
-
-```text
-.
-├── index.html
-├── assets/app.css
-├── src/app.js
-├── src/subtitles.js
-├── tests/subtitles.test.cjs
-├── userscript/
-│   ├── hendy-tools-vietsub.user.js
-│   └── hendy-vietsub-subtitle-studio.user.js
-├── manifest.webmanifest
-├── sw.js
-└── .github/workflows/ci.yml
-```
-
-## Giới hạn có chủ đích
-
-- Không tự nhận dạng giọng nói (ASR) hay tự lấy transcript từ video.
-- Không hard-burn/ghép phụ đề vào video và không thay thế công cụ dựng phim.
-- Dịch tự động cần endpoint tương thích và có thể bị chặn bởi CORS hoặc giới hạn nhà cung cấp.
-- Nháp cục bộ nằm trong storage của trình duyệt hiện tại; nên xuất JSON để sao lưu.
-
-## License
-
-MIT. Xem `LICENSE`.
+Các kiểm tra mã nguồn không thay thế thử nghiệm end-to-end trong Docker với mô hình đã build.
