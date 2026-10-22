@@ -19,7 +19,7 @@ const FFMPEG_TIMEOUT_MS = 240_000;
 const WORKER_TIMEOUT_MS = 12 * 60_000;
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ||
-  'https://hendyngo-servers.github.io,http://localhost:8080,http://127.0.0.1:8080')
+  'https://hendyngo-servers.github.io,https://hendy-tools-vietsub.ngogiaidy3.workers.dev,http://localhost:8080,http://127.0.0.1:8080')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean);
