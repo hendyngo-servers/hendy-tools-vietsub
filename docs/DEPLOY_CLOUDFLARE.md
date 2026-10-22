@@ -2,7 +2,7 @@
 
 This repository uses two separate runtime components:
 
-- Cloudflare Workers serves the static frontend directly from the repository root. The .assetsignore file acts as a frontend-only allowlist. The assets directory is set to the existing "." path so a direct "npx wrangler deploy" does not require a previous build to create dist/.
+- Cloudflare Workers serves the sanitized static frontend from dist/. The package.json postinstall script runs scripts/build-static.cjs during the `bun install` stage in Cloudflare Workers Builds, creating dist/ before the configured deploy command runs. The dist/ directory contains only approved frontend files, so Cloudflare's direct "npx wrangler deploy" command works without a separate dashboard build command.
 - Argos translation, Whisper speech recognition and FFmpeg rendering run in the separate Docker backend. A static Worker does not run those Python/media tools.
 
 ## A. Create the two repository secrets
@@ -37,10 +37,10 @@ The repository now supports the build configuration shown in the reported error 
 
 - Build command: leave empty (or use the project's normal dependency-install step, if the dashboard requires one).
 - Deploy command: npx wrangler deploy.
-- Wrangler assets directory: "." (the repository root exists at deployment time).
-- Asset upload filter: .assetsignore excludes backend code, dependencies, tests, workflow files and configuration, and allows only index.html, manifest.webmanifest, sw.js, version.json, assets/** and src/**.
+- Wrangler assets directory: "./dist".
+- The build script copies only index.html, manifest.webmanifest, sw.js, version.json, assets/** and src/** into dist/. Backend code and repository config are not part of the published bundle.
 
-After pulling the latest commit, run a fresh deployment. The previous error pointed to /opt/buildhome/repo/dist because Wrangler had been configured to use ./dist before that directory had been generated. This repository no longer requires dist/ for a direct Wrangler deployment.
+After pulling the latest commit, run a fresh deployment. The previous error pointed to /opt/buildhome/repo/dist because Wrangler tried to deploy before the directory had been generated. The postinstall hook now creates dist/ during the bun install step before the direct Wrangler deploy command runs.
 
 ## C. Deploy from GitHub Actions instead
 
