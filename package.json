@@ -1,6 +1,6 @@
 {
   "name": "hendy-tools-vietsub",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "private": true,
   "description": "Vietsub subtitle studio with bundled offline translation, speech recognition and FFmpeg rendering",
   "license": "MIT",
