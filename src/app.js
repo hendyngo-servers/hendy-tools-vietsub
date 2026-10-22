@@ -19,22 +19,39 @@
   let isTranslating = false;
   let settings = loadSettings();
 
+  function isLoopbackHostname(hostname) {
+    const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+    return host === 'localhost' || host.endsWith('.localhost') ||
+      host === '::1' || host === '0.0.0.0' ||
+      /^127(?:\.\d{1,3}){3}$/.test(host);
+  }
+
+  function isLoopbackBackendUrl(value) {
+    try { return isLoopbackHostname(new URL(String(value)).hostname); }
+    catch (_) { return false; }
+  }
+
   function defaultBackendUrl() {
-    const localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const localHost = isLoopbackHostname(location.hostname);
     // The local Docker Compose frontend proxies /api and /health to the bundled backend.
     if (localHost && location.port === '8080') return location.origin;
     if (localHost) return 'http://localhost:10000';
-    // GitHub Pages, Cloudflare Pages/Workers assets and other static hosts cannot run
-    // the Python models or FFmpeg. Never guess that a static origin is also the API server.
+    // A public static site must be explicitly connected to a publicly reachable backend.
     return '';
   }
 
   function loadSettings() {
     try {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+      let backendUrl = typeof saved.backendUrl === 'string' ? saved.backendUrl :
+        (typeof saved.endpoint === 'string' ? saved.endpoint : defaultBackendUrl());
+      // Older releases could leave a localhost URL in storage. On a public website,
+      // that URL refers to each visitor's own computer, not to the deployed backend.
+      if (!isLoopbackHostname(location.hostname) && isLoopbackBackendUrl(backendUrl)) {
+        backendUrl = '';
+      }
       return {
-        backendUrl: typeof saved.backendUrl === 'string' ? saved.backendUrl :
-          (typeof saved.endpoint === 'string' && saved.endpoint.includes('localhost') ? saved.endpoint : defaultBackendUrl()),
+        backendUrl,
         sourceLanguage: typeof saved.sourceLanguage === 'string' ? saved.sourceLanguage : 'auto',
         transcriptionLanguage: typeof saved.transcriptionLanguage === 'string' ? saved.transcriptionLanguage : 'auto'
       };
@@ -42,7 +59,6 @@
       return { backendUrl: defaultBackendUrl(), sourceLanguage: 'auto', transcriptionLanguage: 'auto' };
     }
   }
-
   function saveSettings(showToast = true) {
     settings = {
       backendUrl: $('#offlineBackendUrl').value.trim(),
@@ -475,14 +491,19 @@
 
   function getOfflineBackendUrl() {
     const raw = $('#offlineBackendUrl').value.trim().replace(/\/+$/, '');
-    if (!raw) throw new Error('Nhập URL backend Vietsub của bạn trước. Không cần API key.');
+    if (!raw) throw new Error('Nhập URL HTTPS của backend Vietsub đã triển khai. Không cần API key.');
     let url;
     try { url = new URL(raw); } catch (_) { throw new Error('URL backend chưa hợp lệ.'); }
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Backend chỉ hỗ trợ HTTP hoặc HTTPS.');
     if (url.username || url.password) throw new Error('Không nhúng thông tin đăng nhập vào URL backend.');
+    if (!isLoopbackHostname(location.hostname) && isLoopbackHostname(url.hostname)) {
+      throw new Error('URL backend đang trỏ về localhost trên máy tính của bạn. Website workers.dev là trang công khai nên không thể dùng localhost. Hãy triển khai backend Vietsub riêng và nhập URL HTTPS công khai (ví dụ https://ten-dich-vu.onrender.com).');
+    }
+    if (location.protocol === 'https:' && url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
+      throw new Error('Website đang chạy HTTPS nên trình duyệt chặn backend HTTP. Hãy dùng URL HTTPS của backend.');
+    }
     return url.href.replace(/\/+$/, '');
   }
-
   async function readBackendJson(response) {
     const raw = await response.text();
     let data = {};
@@ -494,7 +515,11 @@
   async function checkOfflineBackend() {
     let base;
     try { base = getOfflineBackendUrl(); saveSettings(false); }
-    catch (error) { notify(error.message, 'warn'); return; }
+    catch (error) {
+      setTranslateLog(error.message, 'bad');
+      notify(error.message, 'warn');
+      return;
+    }
     $('#checkOfflineBtn').disabled = true;
     setTranslateLog('Đang kiểm tra mô hình dịch, Whisper và FFmpeg…');
     try {
@@ -515,7 +540,10 @@
         notify('Bộ máy Vietsub tích hợp đã sẵn sàng; không cần API key.', 'good');
       }
     } catch (error) {
-      setTranslateLog('Không kết nối được backend: ' + error.message + '. Kiểm tra URL, CORS và trạng thái triển khai.', 'bad');
+      const detail = error instanceof TypeError
+        ? 'Trình duyệt không gọi được backend. Kiểm tra backend đã chạy công khai chưa, URL HTTPS và CORS có cho phép origin ' + location.origin + '.'
+        : error.message;
+      setTranslateLog('Không kết nối được backend: ' + detail, 'bad');
       notify('Chưa kết nối được bộ máy Vietsub.', 'bad');
     } finally {
       $('#checkOfflineBtn').disabled = false;
