@@ -49,7 +49,7 @@ Các công cụ biên tập SRT/VTT/JSON chạy trên trình duyệt. Để bậ
 Hướng dẫn từng bước để tạo API Token, thêm hai GitHub Actions Secrets, chạy workflow và xác nhận deployment thật: [docs/DEPLOY_CLOUDFLARE.md](docs/DEPLOY_CLOUDFLARE.md).
 
 
-Đã có cấu hình **wrangler.jsonc** và workflow **.github/workflows/cloudflare.yml**. Worker phục vụ các tệp frontend gốc theo danh sách cho phép trong **.assetsignore**. Cấu hình Wrangler dùng thư mục hiện có `.` nên lệnh `npx wrangler deploy` từ Cloudflare Workers Builds không cần bước build `dist/` trước. Backend Python/Whisper/FFmpeg vẫn chạy riêng.
+Đã có cấu hình **wrangler.jsonc** và workflow **.github/workflows/cloudflare.yml**. Worker phục vụ frontend đã làm sạch trong **dist/**. Để lệnh deploy `npx wrangler deploy` của Cloudflare Workers Builds chạy được ngay sau `bun install`, `package.json` có script `postinstall` tự tạo `dist/`; thư mục này chỉ chứa các tệp frontend được phép xuất bản. Backend Python/Whisper/FFmpeg vẫn chạy riêng.
 
 Trong GitHub repository vào **Settings → Secrets and variables → Actions → New repository secret**, thêm:
 
