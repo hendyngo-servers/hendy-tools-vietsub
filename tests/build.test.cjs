@@ -34,7 +34,9 @@ test('direct Cloudflare deploy uses an existing root directory and a frontend-on
   const wrangler = JSON.parse(fs.readFileSync(path.join(root, 'wrangler.jsonc'), 'utf8'));
   const ignore = fs.readFileSync(path.join(root, '.assetsignore'), 'utf8');
   const version = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
-  assert.equal(wrangler.assets.directory, '.');
+  assert.equal(wrangler.assets.directory, './dist');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts.postinstall, 'node scripts/build-static.cjs', 'Cloudflare dependency install must create dist before Wrangler runs.');
   assert.ok(fs.existsSync(path.join(root, 'index.html')), 'Root frontend must exist for direct Wrangler deploy.');
   assert.equal(version.version, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version);
   for (const entry of ['backend/', 'tests/', 'userscript/', 'scripts/', 'docs/', 'node_modules/', 'dist/', 'package.json', 'wrangler.jsonc', 'worker.js', '.assetsignore']) {
