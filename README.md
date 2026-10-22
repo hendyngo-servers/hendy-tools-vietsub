@@ -46,6 +46,8 @@ https://hendyngo-servers.github.io/hendy-tools-vietsub/
 Các công cụ biên tập SRT/VTT/JSON chạy trên trình duyệt. Để bật dịch và xử lý video, tạo backend ở bước 4 rồi nhập URL backend trong thẻ **Dịch & tạo Vietsub** và chọn **Kiểm tra bộ máy**.
 
 ## 3. Cloudflare Workers (giao diện công khai)
+Hướng dẫn từng bước để tạo API Token, thêm hai GitHub Actions Secrets, chạy workflow và xác nhận deployment thật: [docs/DEPLOY_CLOUDFLARE.md](docs/DEPLOY_CLOUDFLARE.md).
+
 
 Đã có cấu hình **wrangler.jsonc** và workflow **.github/workflows/cloudflare.yml**. Worker chỉ phục vụ frontend tĩnh đã đóng gói trong **dist/**, không chạy mô hình Python/Whisper/FFmpeg.
 
