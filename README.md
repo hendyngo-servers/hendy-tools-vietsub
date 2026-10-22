@@ -62,4 +62,4 @@ Node.js 20 trở lên:
 npm run check
 \`\`\`
 
-Các kiểm tra mã nguồn không thay thế thử nghiệm end-to-end trong Docker với mô hình đã build.
+Cloudflare Workers chỉ triển khai giao diện tĩnh; `.assetsignore` loại backend và thư viện khỏi gói tài nguyên. Các thư viện AI Python chỉ được cài khi build Docker backend trên Render/máy riêng, không cài trong bước deploy Worker. Các kiểm tra mã nguồn không thay thế thử nghiệm end-to-end trong Docker với mô hình đã build.
