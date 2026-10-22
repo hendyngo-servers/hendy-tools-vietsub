@@ -1,4 +1,4 @@
-# Cloudflare Workers deployment — v2.2.1
+# Cloudflare Workers deployment — v2.2.2
 
 This repository uses two separate runtime components:
 
@@ -58,7 +58,7 @@ In the build log, confirm that Wrangler no longer reports that the assets direct
 
 Use the URL printed by Wrangler and test:
 - / should show the Hendy VietSub interface.
-- /version.json should report version 2.2.1 and staticOnly: true.
+- /version.json should report version 2.2.2 and staticOnly: true.
 
 The workers.dev hostname depends on the Cloudflare account's configured subdomain. Use the URL printed in the deploy log rather than guessing it.
 
