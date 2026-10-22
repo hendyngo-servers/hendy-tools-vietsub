@@ -19,7 +19,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Hendy VietSub Offline Studio v2.2.0
+echo Hendy VietSub Offline Studio v2.2.1
 echo First build downloads the open-source offline translation and Whisper models.
 echo This can be a large download. At runtime, translation does not call a third-party API.
 echo.
