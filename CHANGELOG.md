@@ -1,11 +1,17 @@
 # Changelog
 
-## 2.1.0 — 2026-10-22
+## 2.2.1 — 2026-10-22
 
-- Tách parser, định dạng SRT/VTT và các phép biến đổi phụ đề thành `src/subtitles.js` để dễ kiểm thử.
-- Nâng cấp giao diện responsive cho editor, preview video, công cụ timeline và cấu hình dịch.
-- Bổ sung WebVTT cue settings, kiểm tra import JSON, giới hạn kích thước file, tìm/thay thế, làm sạch văn bản, sắp xếp và kiểm tra chồng lấn.
-- Thêm xuất SRT/VTT bản gốc, Vietsub hoặc song ngữ; xuất/khôi phục JSON.
-- Dịch API tùy chọn qua OpenAI-compatible Chat Completions hoặc LibreTranslate-compatible.
-- Không lưu API key vào localStorage, bản nháp hay JSON export.
-- Thêm PWA shell cache, userscript studio, CI và bộ kiểm thử `node:test` không cần dependency ngoài.
+- Add deterministic scripts/build-static.cjs output in dist/; public workflows deploy only the frontend allowlist.
+- Add optional Cloudflare Workers static deployment with credential checks and a tag-driven GitHub Release workflow.
+- Correct Argos model download host and align package filenames and UI language choices with models actually bundled.
+- Verify model downloads and Whisper model presence during Docker image build.
+- Make /health return a failing status until the offline translation worker is ready; wait for readiness before starting the frontend in Docker Compose.
+- Document GitHub Pages, Cloudflare, Render and Windows Docker publication paths; clarify that static hosting does not run the AI/media backend.
+
+## 2.2.0 — 2026-10-22
+
+- Integrate offline Argos Translate, Whisper tiny and FFmpeg endpoints for batch translation, speech recognition and hard-subtitle MP4 rendering.
+- Add Docker image, Docker Compose and Render Blueprint for self-hosted offline model execution.
+- Remove the browser-based third-party API-key field from the offline UI.
+- Add basic offline backend health checks and upload limits.
