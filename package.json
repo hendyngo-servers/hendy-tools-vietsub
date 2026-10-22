@@ -8,7 +8,8 @@
     "start": "node backend/server.js",
     "test": "node --test tests/*.test.cjs",
     "check": "node --check src/subtitles.js && node --check src/app.js && node --check backend/server.js && node --check userscript/hendy-tools-vietsub.user.js && node --check userscript/hendy-vietsub-subtitle-studio.user.js && npm test && npm run build:static",
-    "build:static": "node scripts/build-static.cjs"
+    "build:static": "node scripts/build-static.cjs",
+    "postinstall": "node scripts/build-static.cjs"
   },
   "engines": {
     "node": ">=20"
