@@ -51,6 +51,6 @@ $('burn').onclick=async function(){
 };
 $('clear').onclick=function(){localStorage.removeItem(storage+'-settings');$('endpoint').value='';status('Đã xóa URL backend cục bộ.')};
 document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?$('redo').click():$('undo').click()}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();$('redo').click()}});
-try{var old=JSON.parse(localStorage.getItem(storage+'-settings')||'null');if(old){$('endpoint').value=old.url||'';$('source').value=old.source||'auto';$('target').value=old.target||'vi';}var draft=JSON.parse(localStorage.getItem(storage)||'null');if(Array.isArray(draft))cues=draft}catch(e){}render();
+try{var old=JSON.parse(localStorage.getItem(storage+'-settings')||'null');if(old){$('endpoint').value=old.url||'';$('source').value=old.source||'auto';$('target').value=old.target||'vi';if(Object.prototype.hasOwnProperty.call(old,'key')){delete old.key;localStorage.setItem(storage+'-settings',JSON.stringify(old));}}var draft=JSON.parse(localStorage.getItem(storage)||'null');if(Array.isArray(draft))cues=draft}catch(e){}render();
 })();
 </script></body></html>
