@@ -1,0 +1,9 @@
+{
+  "name": "hendy-tools-vietsub",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Browser-based Vietnamese subtitle editor",
+  "scripts": {
+    "test": "node tests/parser.test.cjs"
+  }
+}
