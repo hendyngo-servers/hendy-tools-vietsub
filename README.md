@@ -16,6 +16,15 @@ Các công cụ biên tập, xem trước và xuất SRT/VTT/JSON hoạt động
 
 Để bật dịch neural offline, nhận dạng giọng nói và xuất MP4 có phụ đề, chạy backend tự quản lý. GitHub Pages chỉ phục vụ tệp tĩnh, không thể tự chạy mô hình Python hoặc FFmpeg, vì vậy giao diện cần URL của backend riêng — đây không phải API dịch vụ bên thứ ba và không cần khóa API.
 
+### Chạy trên Windows bằng một tệp BAT
+
+1. Cài và mở Docker Desktop, đợi Docker báo đang chạy.
+2. Tải repository về máy hoặc mở bản clone trong thư mục dự án.
+3. Chạy `run-offline.bat` bằng cách nhấp đúp. Script sẽ build mô hình, khởi động frontend/backend và mở `http://localhost:8080`.
+4. Kiểm tra `http://localhost:8080/health`. Chỉ khi bộ máy báo sẵn sàng mới dùng dịch offline/Whisper/FFmpeg.
+
+Lần build đầu cần internet và dung lượng đĩa lớn để cài mô hình; các tác vụ suy luận sau đó không gọi dịch vụ API bên thứ ba. Nếu chỉ dùng công cụ biên tập thủ công, `run-local.bat` hoặc mở `index.html` vẫn đủ.
+
 ### Chạy với Docker
 
 Yêu cầu Docker Desktop hoặc Docker Engine và kết nối internet trong lần build đầu để tải mô hình mã nguồn mở vào image:
