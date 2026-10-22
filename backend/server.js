@@ -240,7 +240,7 @@ function checkVideoExtension(file) {
 app.get('/', (_req, res) => {
   res.json({
     name: 'Hendy VietSub Offline Studio',
-    version: '2.2.0',
+    version: '2.2.1',
     externalTranslationApiRequired: false,
     endpoints: ['/health', '/api/translate', '/api/translate-batch', '/api/transcribe', '/api/render']
   });
