@@ -4,4 +4,14 @@
 !backend/
 !backend/**
 !Dockerfile
+!frontend.Dockerfile
+!docker-compose.yml
+!nginx.conf
+!index.html
+!assets/
+!assets/**
+!src/
+!src/**
+!manifest.webmanifest
+!sw.js
 !.dockerignore
