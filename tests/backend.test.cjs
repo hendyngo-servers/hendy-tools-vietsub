@@ -52,3 +52,11 @@ test('release Docker build downloads verified model packages from the official A
   assert.ok(installer.includes('model.bin'));
   assert.ok(worker.includes('SUPPORTED = {"en", "ja", "ko", "zh", "fr", "de", "id", "it", "fi", "hi"}'));
 });
+
+
+test('backend CORS configuration includes the deployed Cloudflare Workers frontend origin', () => {
+  const render = fs.readFileSync('render.yaml', 'utf8');
+  const workerOrigin = 'https://hendy-tools-vietsub.ngogiaidy3.workers.dev';
+  assert.ok(backend.includes(workerOrigin), 'Backend fallback CORS list must include current Worker origin.');
+  assert.ok(render.includes(workerOrigin), 'Render Blueprint ALLOWED_ORIGINS must include current Worker origin.');
+});
