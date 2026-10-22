@@ -1,0 +1,13 @@
+{
+  "name": "Hendy VietSub Tools",
+  "short_name": "Hendy VietSub",
+  "description": "Biên tập phụ đề tiếng Việt ngay trong trình duyệt.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080e18",
+  "theme_color": "#09111f",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

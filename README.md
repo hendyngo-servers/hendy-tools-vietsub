@@ -1,47 +1,83 @@
-# Hendy Tools Vietsub v2.1.0
+# Hendy Tools Vietsub 2.1.0
 
-Hendy Tools Vietsub combines a static browser subtitle editor with an optional Node.js/FFmpeg backend. The UI can edit subtitles locally; translation and permanent video rendering use the backend.
+Bộ biên tập phụ đề chạy phía trình duyệt, ưu tiên xử lý cục bộ. Không cần backend, framework, build step hay npm dependencies để chạy ứng dụng.
 
-## Features
+## Tính năng 2.1
 
-- Import SRT and WebVTT; edit source text, Vietsub text, and timestamps.
-- Search/filter cues, undo/redo, local draft storage, and local video preview.
-- Export SRT, WebVTT, bilingual SRT, and JSON.
-- Translate untranslated cues through the backend proxy to a configured LibreTranslate-compatible service.
-- Burn subtitles into a new MP4 using FFmpeg. The source video is not modified.
-- GitHub Pages frontend and Render Blueprint/Docker backend.
+- Nhập SRT/WebVTT, sắp xếp theo thời gian, sửa lời gốc và Vietsub riêng biệt.
+- Xem trước video từ máy tính và hiển thị phụ đề theo thời gian phát; video không được tải lên máy chủ.
+- Tìm/lọc dòng chưa dịch, thêm/xóa dòng và sửa thời gian trực tiếp.
+- Hoàn tác/làm lại, tự lưu nháp cục bộ và khôi phục khi mở lại cùng trình duyệt.
+- Căn chỉnh toàn bộ timeline, tìm/thay thế, làm sạch khoảng trắng, kiểm tra dòng trống, thứ tự và chồng lấn.
+- Xuất SRT/VTT theo bản dịch, bản gốc hoặc song ngữ; sao lưu/khôi phục JSON.
+- Dịch qua API tương thích OpenAI Chat Completions hoặc LibreTranslate-compatible do người dùng tự cấu hình.
+- Có shell cache service worker để ứng dụng tiếp tục tải khi đã mở online một lần trên origin hỗ trợ HTTPS.
+- Kèm Tampermonkey userscript dạng cửa sổ nổi với trình sửa, video cục bộ, thao tác timeline và dịch API.
+- Không có analytics hoặc gửi dữ liệu nền.
 
-## Frontend
+## Chạy cục bộ
 
-Open \`index.html\` or serve the repository with a local static server (for example, \`python -m http.server 8080\`). In the UI, enter the base URL of the deployed API, such as \`https://your-service.onrender.com\` (do not append \`/api/translate\`).
+Mở `index.html` bằng Chrome/Edge/Firefox hiện đại để biên tập và xuất tệp. Trên Windows có thể chạy `run-local.bat`. Để bật service worker/PWA, chạy qua HTTP(S), ví dụ:
 
-## Backend deployment on Render
+```bash
+npx serve .
+```
 
-1. Open the repository in Render and create a Blueprint from \`render.yaml\`, or create a Docker web service from this repository with the root \`Dockerfile\`.
-2. Keep \`ALLOWED_ORIGINS\` set to the exact frontend origin, e.g. \`https://hendyngo-servers.github.io\`. Add any local development origin as a comma-separated value.
-3. Configure \`LIBRETRANSLATE_URL\` as the full translation endpoint URL (including \`/translate\`) and \`LIBRETRANSLATE_API_KEY\` if your translation provider requires one. These belong in Render environment variables, never in frontend code or Git.
-4. Deploy, open \`https://your-service.onrender.com/health\`, and confirm it returns \`ok: true\`. \`translationConfigured\` is true only when the translation URL is set.
-5. Enter the Render service base URL in the app. Subtitle drafts remain in the user's browser; the backend does not use a persistent database.
+Hoặc dùng Live Server trong trình soạn thảo. Không cần chạy `npm install`.
 
-The Blueprint defaults to the Render Free plan to avoid unexpected costs. Free services can sleep and have limited compute; FFmpeg exports may be slow or time out. Upgrade only after reviewing Render pricing and service limits. The API Docker image installs FFmpeg and DejaVu fonts.
+## Kiểm thử
 
-## API endpoints
+Yêu cầu Node.js 20 trở lên:
 
-- \`GET /health\`: health status and configured capabilities.
-- \`POST /api/translate\`: JSON \`{ "q": "Text to translate", "source": "auto", "target": "vi", "format": "text" }\`; returns \`{ "translatedText": "..." }\`. Provider URL/API key are server-side.
-- \`POST /api/render\`: multipart form containing \`video\` (MP4/MOV/MKV/WEBM/M4V), \`subtitleSrt\` (SRT text), and optional \`fontSize\`. Returns an MP4 with hard-burned subtitles.
+```bash
+npm run check
+```
 
-## Default operational limits
+Bộ kiểm thử sử dụng `node:test` tích hợp, không tải thư viện bên ngoài.
 
-- Video upload up to 200 MB and 10 minutes.
-- Maximum FFmpeg processing window of four minutes.
-- Three render requests per IP per 15 minutes; translation calls are rate-limited.
-- Rendered results and uploaded source files are temporary and removed after the response. Do not use this single-instance temporary workflow as a durable rendering queue for large-scale production.
+## Dịch API
 
-## Tests
+1. Chọn nhà cung cấp và nhập endpoint HTTPS, tên model (nếu dùng Chat Completions), ngôn ngữ nguồn/đích.
+2. Dán API key trực tiếp vào trường phiên hiện tại. **API key không được lưu vào localStorage, bản nháp hoặc file JSON.**
+3. Xác nhận hộp thoại trước khi gửi phụ đề. Chỉ văn bản các dòng được chọn được gửi; video không được gửi.
+4. Endpoint phải cho phép CORS phù hợp và chấp nhận payload của nhà cung cấp.
 
-Run \`npm test\` with Node.js 22 or newer. The test suite checks inline UI script syntax and backend source syntax/feature markers; it does not replace an end-to-end Render/FFmpeg deployment test.
+Chi phí API (nếu có) do tài khoản của bạn chịu. Chỉ gửi văn bản đến máy chủ mà bạn tin cậy. Tránh dùng khóa có quyền quản trị rộng trong trình duyệt.
 
-## Security and privacy
+## Tampermonkey
 
-The backend uses environment variables for translation credentials. Avoid putting keys in browser code or committing them to Git. Uploaded videos and subtitle files are processed temporarily and then removed; do not upload private media unless you trust the hosting service. Configure \`ALLOWED_ORIGINS\` narrowly. Public deployment remains subject to provider limits and abuse risk; rate limits are basic safeguards, not user authentication.
+Cài `userscript/hendy-vietsub-subtitle-studio.user.js` để mở bảng công cụ trên trang web. Script không chạy trong iframe. Video và phụ đề vẫn được xử lý trong tab trình duyệt; chỉ nội dung phụ đề được gửi đi khi bạn chủ động chạy dịch API.
+
+`userscript/hendy-tools-vietsub.user.js` là launcher gọn nhẹ. Launcher mở URL GitHub Pages mặc định; URL này chỉ hoạt động sau khi repository đã bật Pages.
+
+## GitHub Pages
+
+Ứng dụng là static site: đặt `index.html` ở root và publish thư mục root bằng GitHub Pages (Settings → Pages). Có thể mở trực tiếp link Pages sau khi repository đã bật Pages. GitHub Pages không được tự bật bởi mã nguồn này.
+
+## Cấu trúc
+
+```text
+.
+├── index.html
+├── assets/app.css
+├── src/app.js
+├── src/subtitles.js
+├── tests/subtitles.test.cjs
+├── userscript/
+│   ├── hendy-tools-vietsub.user.js
+│   └── hendy-vietsub-subtitle-studio.user.js
+├── manifest.webmanifest
+├── sw.js
+└── .github/workflows/ci.yml
+```
+
+## Giới hạn có chủ đích
+
+- Không tự nhận dạng giọng nói (ASR) hay tự lấy transcript từ video.
+- Không hard-burn/ghép phụ đề vào video và không thay thế công cụ dựng phim.
+- Dịch tự động cần endpoint tương thích và có thể bị chặn bởi CORS hoặc giới hạn nhà cung cấp.
+- Nháp cục bộ nằm trong storage của trình duyệt hiện tại; nên xuất JSON để sao lưu.
+
+## License
+
+MIT. Xem `LICENSE`.
