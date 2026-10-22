@@ -12,6 +12,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: ALLOWED_ORIGINS
-        value: https://hendyngo-servers.github.io,http://localhost:8080,http://127.0.0.1:8080
+        value: https://hendyngo-servers.github.io,https://hendy-tools-vietsub.ngogiaidy3.workers.dev,http://localhost:8080,http://127.0.0.1:8080
       - key: OMP_NUM_THREADS
         value: "2"
