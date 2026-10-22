@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Hendy Tools Vietsub Launcher
+// @name         Hendy Tools Vietsub Offline Launcher
 // @namespace    https://github.com/hendyngo-servers/hendy-tools-vietsub
-// @version      2.1.0
-// @description  Nút mở nhanh Hendy VietSub Tools Studio.
+// @version      2.2.0
+// @description  Nút mở nhanh bộ biên tập Vietsub offline: dịch bằng mô hình tích hợp, Whisper và FFmpeg.
 // @match        http://*/*
 // @match        https://*/*
 // @grant        GM_openInTab
@@ -15,9 +15,8 @@
   const button = document.createElement('button');
   button.id = 'hendy-vietsub-launcher';
   button.type = 'button';
-  button.textContent = '🎬 HENDY VIETSUB';
-  button.title = 'Mở Hendy VietSub Tools Studio';
-  button.setAttribute('aria-label', 'Mở Hendy VietSub Tools Studio');
+  button.textContent = '🎬 HENDY VIETSUB OFFLINE';
+  button.title = 'Mở bộ công cụ Vietsub offline tích hợp, không cần API key';
   Object.assign(button.style, {
     position: 'fixed', right: '18px', bottom: '18px', zIndex: '2147483647',
     padding: '11px 15px', border: '1px solid #5eead4', borderRadius: '12px',
