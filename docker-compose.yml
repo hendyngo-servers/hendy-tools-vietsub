@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hendy-vietsub-offline:2.2.0
+    environment:
+      NODE_ENV: production
+      PORT: "10000"
+      ALLOWED_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+      OMP_NUM_THREADS: "2"
+    ports:
+      - "10000:10000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    image: hendy-vietsub-web:2.2.0
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
