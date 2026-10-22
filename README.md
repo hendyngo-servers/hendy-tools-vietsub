@@ -1,4 +1,4 @@
-# Hendy Tools Vietsub 2.2.1 — Offline Studio
+# Hendy Tools Vietsub 2.2.2 — Offline Studio
 
 Bộ công cụ biên tập phụ đề với dịch máy Argos Translate, nhận dạng giọng nói Whisper và xử lý video bằng FFmpeg. Sau khi mô hình đã được tải trong bước build backend, các tác vụ suy luận chạy tại backend do bạn quản lý, **không cần API key hoặc gọi dịch vụ dịch thuật/AI bên thứ ba**.
 
@@ -12,6 +12,12 @@ Bộ công cụ biên tập phụ đề với dịch máy Argos Translate, nhậ
 - Dịch Vietsub offline bằng gói Argos đóng kèm: English, Japanese, Korean, Chinese, French, German, Indonesian, Italian, Finnish và Hindi. Các ngôn ngữ nguồn không phải English được Argos chuyển qua English khi có đủ cặp mô hình.
 - Ghép phụ đề vĩnh viễn vào file MP4 mới bằng FFmpeg.
 - Giới hạn upload mặc định 200 MB/10 phút; tối đa 40 dòng mỗi lượt dịch.
+
+## Sửa lỗi kết nối backend trên Cloudflare Workers
+
+Bản v2.2.2 tự xóa URL localhost cũ khỏi cấu hình khi mở trên website public và báo lỗi rõ ràng nếu chọn localhost, HTTP bị trình duyệt chặn hoặc CORS chưa cho phép origin. Trên website đang chạy từ `hendy-tools-vietsub.ngogiaidy3.workers.dev`, cần nhập URL HTTPS public của backend đã triển khai, không nhập `http://localhost:8080`. Blueprint Render và CORS mặc định của backend đã được cập nhật để cho phép origin Worker này.
+
+Lưu ý: sửa giao diện không tự tạo backend. Nếu chưa triển khai Docker backend, dịch, Whisper và xuất MP4 chưa thể chạy từ trang public.
 
 ## 1. Chạy đầy đủ trên Windows (cách đơn giản nhất)
 
@@ -79,7 +85,7 @@ npm run check
 
 Lệnh này kiểm tra cú pháp JavaScript, các test parser/UI/backend và tạo artifact **dist/**; script build xác minh các file giao diện cần thiết và từ chối nếu mã server-only lọt vào artifact.
 
-Khi muốn tạo GitHub Release, hãy bảo đảm trường **version** trong **package.json** khớp tag. Với bản này, dùng tag **v2.2.1**; workflow **.github/workflows/release.yml** sẽ chạy test, đóng gói frontend ZIP và tạo Release nếu tất cả bước thành công.
+Khi muốn tạo GitHub Release, hãy bảo đảm trường **version** trong **package.json** khớp tag. Với bản này, dùng tag **v2.2.2**; workflow **.github/workflows/release.yml** sẽ chạy test, đóng gói frontend ZIP và tạo Release nếu tất cả bước thành công.
 
 ## Quyền riêng tư và giới hạn
 
