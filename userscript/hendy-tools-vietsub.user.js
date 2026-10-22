@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hendy Tools Vietsub Offline Launcher
 // @namespace    https://github.com/hendyngo-servers/hendy-tools-vietsub
-// @version      2.2.1
+// @version      2.2.2
 // @description  Nút mở nhanh bộ biên tập Vietsub offline: dịch bằng mô hình tích hợp, Whisper và FFmpeg.
 // @match        http://*/*
 // @match        https://*/*
