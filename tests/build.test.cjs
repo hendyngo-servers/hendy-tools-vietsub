@@ -28,3 +28,19 @@ test('release build copies frontend assets but never publishes backend source', 
   assert.equal(version.version, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version);
   assert.equal(version.offlineAiRequiresBackend, true);
 });
+
+
+test('direct Cloudflare deploy uses an existing root directory and a frontend-only asset allowlist', () => {
+  const wrangler = JSON.parse(fs.readFileSync(path.join(root, 'wrangler.jsonc'), 'utf8'));
+  const ignore = fs.readFileSync(path.join(root, '.assetsignore'), 'utf8');
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
+  assert.equal(wrangler.assets.directory, '.');
+  assert.ok(fs.existsSync(path.join(root, 'index.html')), 'Root frontend must exist for direct Wrangler deploy.');
+  assert.equal(version.version, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version);
+  for (const entry of ['backend/', 'tests/', 'userscript/', 'scripts/', 'docs/', 'node_modules/', 'dist/', 'package.json', 'wrangler.jsonc', 'worker.js', '.assetsignore']) {
+    assert.ok(ignore.split(/\r?\n/).includes(entry), 'Missing deployment exclusion: ' + entry);
+  }
+  for (const entry of ['!index.html', '!manifest.webmanifest', '!sw.js', '!version.json', '!assets/**', '!src/**']) {
+    assert.ok(ignore.split(/\r?\n/).includes(entry), 'Missing public asset allowlist entry: ' + entry);
+  }
+});
